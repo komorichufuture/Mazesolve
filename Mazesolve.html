@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Center Start + Multi Goals Maze (Path)</title>
+<style>
+  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+  .wrap{display:grid;gap:12px;justify-items:center}
+  canvas{border:1px solid rgba(0,0,0,.2);border-radius:8px;touch-action:manipulation}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button,input,select{font:inherit}
+  button{padding:8px 12px;border:1px solid rgba(0,0,0,.25);background:#fff;border-radius:8px;cursor:pointer}
+  label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px}
+  input[type="number"]{width:76px}
+  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <button id="gen">生成</button>
+    <label>列 <input id="cols" type="number" min="11" max="201" step="2" value="61"></label>
+    <label>行 <input id="rows" type="number" min="11" max="201" step="2" value="41"></label>
+    <label>ゴール数 <input id="goals" type="number" min="1" max="20" value="5"></label>
+    <label>複雑化(壁破壊) <input id="loops" type="number" min="0" max="1000" value="120"></label>
+
+    <label><input id="showPath" type="checkbox" checked> 経路を表示</label>
+    <select id="pathMode" title="Path mode">
+      <option value="nearest" selected>最短ゴール</option>
+      <option value="all">全ゴール</option>
+    </select>
+  </div>
+  <canvas id="c" width="900" height="600"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const DIRS = [
+  {k:'N', dx:0, dy:-1, opp:'S'},
+  {k:'E', dx:1, dy:0,  opp:'W'},
+  {k:'S', dx:0, dy:1,  opp:'N'},
+  {k:'W', dx:-1,dy:0,  opp:'E'},
+];
+
+function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
+function oddize(n){ n = Math.round(n); return (n%2===0)? n+1 : n; }
+function randInt(n){ return Math.floor(Math.random()*n); }
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = randInt(i+1);
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function inBounds(x,y,cols,rows){ return x>=0 && y>=0 && x<cols && y<rows; }
+
+function makeGrid(cols, rows){
+  return Array.from({length:rows}, (_,y)=>
+    Array.from({length:cols}, (_,x)=>({
+      x,y,
+      v:false,
+      w:{N:true,E:true,S:true,W:true}
+    }))
+  );
+}
+
+function carveMazeDFS(grid, cols, rows, sx, sy){
+  const st = [];
+  const start = grid[sy][sx];
+  start.v = true;
+  st.push(start);
+
+  while(st.length){
+    const cur = st[st.length-1];
+    const dirs = shuffle(DIRS.slice());
+    let carved = false;
+
+    for(const d of dirs){
+      const nx = cur.x + d.dx, ny = cur.y + d.dy;
+      if(!inBounds(nx,ny,cols,rows)) continue;
+      const nb = grid[ny][nx];
+      if(nb.v) continue;
+
+      cur.w[d.k] = false;
+      nb.w[d.opp] = false;
+      nb.v = true;
+      st.push(nb);
+      carved = true;
+      break;
+    }
+    if(!carved) st.pop();
+  }
+}
+
+function addLoops(grid, cols, rows, breaks){
+  let tries = breaks * 4;
+  while(breaks > 0 && tries-- > 0){
+    const x = randInt(cols);
+    const y = randInt(rows);
+    const cell = grid[y][x];
+    const d = DIRS[randInt(4)];
+    const nx = x + d.dx, ny = y + d.dy;
+    if(!inBounds(nx,ny,cols,rows)) continue;
+    if(cell.w[d.k] === false) continue;
+
+    cell.w[d.k] = false;
+    grid[ny][nx].w[d.opp] = false;
+    breaks--;
+  }
+}
+
+function pickGoalsOnBoundary(cols, rows, count, startX, startY){
+  const cand = [];
+  for(let x=0;x<cols;x++){
+    cand.push([x,0],[x,rows-1]);
+  }
+  for(let y=1;y<rows-1;y++){
+    cand.push([0,y],[cols-1,y]);
+  }
+  const uniq = new Map();
+  for(const [x,y] of cand){
+    if(x===startX && y===startY) continue;
+    uniq.set(`${x},${y}`,[x,y]);
+  }
+  const list = Array.from(uniq.values());
+  shuffle(list);
+  return list.slice(0, clamp(count,1,list.length));
+}
+
+/* ===== 経路探索（BFS） =====
+   壁がない方向へだけ移動できるので、隣接グラフとしてBFS。
+   prev[ny][nx] に 直前セルを記録して復元。
+*/
+function neighbors(grid, cols, rows, x, y){
+  const c = grid[y][x];
+  const out = [];
+  for(const d of DIRS){
+    const nx = x + d.dx, ny = y + d.dy;
+    if(!inBounds(nx,ny,cols,rows)) continue;
+    // 壁が開いているなら移動可
+    if(c.w[d.k] === false){
+      out.push([nx,ny]);
+    }
+  }
+  return out;
+}
+
+function bfsAllPrev(grid, cols, rows, sx, sy){
+  const prev = Array.from({length:rows}, ()=>Array(cols).fill(null));
+  const dist = Array.from({length:rows}, ()=>Array(cols).fill(Infinity));
+  const qx = new Int32Array(cols*rows);
+  const qy = new Int32Array(cols*rows);
+  let head=0, tail=0;
+
+  dist[sy][sx] = 0;
+  qx[tail]=sx; qy[tail]=sy; tail++;
+
+  while(head<tail){
+    const x = qx[head], y = qy[head]; head++;
+    const d0 = dist[y][x];
+    for(const [nx,ny] of neighbors(grid,cols,rows,x,y)){
+      if(dist[ny][nx] !== Infinity) continue;
+      dist[ny][nx] = d0 + 1;
+      prev[ny][nx] = [x,y];
+      qx[tail]=nx; qy[tail]=ny; tail++;
+    }
+  }
+  return {prev, dist};
+}
+
+function reconstructPath(prev, sx, sy, gx, gy){
+  // 到達不能なら null（完全迷路＋ループ追加なら基本到達可能）
+  if(prev[gy][gx] === null && !(sx===gx && sy===gy)) return null;
+  const path = [];
+  let x=gx, y=gy;
+  path.push([x,y]);
+  while(!(x===sx && y===sy)){
+    const p = prev[y][x];
+    if(!p) return null;
+    x=p[0]; y=p[1];
+    path.push([x,y]);
+  }
+  path.reverse();
+  return path;
+}
+
+/* ===== 描画 ===== */
+function draw(grid, cols, rows, start, goals, paths){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const pad = 16;
+  const cellW = (canvas.width - pad*2) / cols;
+  const cellH = (canvas.height - pad*2) / rows;
+  const s = Math.min(cellW, cellH);
+  const offX = (canvas.width  - cols*s)/2;
+  const offY = (canvas.height - rows*s)/2;
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // 壁
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = Math.max(1, Math.floor(s*0.08));
+  ctx.lineCap = 'square';
+
+  ctx.beginPath();
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      const c = grid[y][x];
+      const x0 = offX + x*s;
+      const y0 = offY + y*s;
+      const x1 = x0 + s;
+      const y1 = y0 + s;
+
+      if(c.w.N){ ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); }
+      if(c.w.E){ ctx.moveTo(x1,y0); ctx.lineTo(x1,y1); }
+      if(c.w.S){ ctx.moveTo(x0,y1); ctx.lineTo(x1,y1); }
+      if(c.w.W){ ctx.moveTo(x0,y0); ctx.lineTo(x0,y1); }
+    }
+  }
+  ctx.stroke();
+
+  // 経路（壁の上から描く）
+  if(paths && paths.length){
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = Math.max(2, Math.floor(s*0.18));
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    for(const path of paths){
+      if(!path || path.length<2) continue;
+      ctx.beginPath();
+      for(let i=0;i<path.length;i++){
+        const [x,y] = path[i];
+        const cx = offX + (x+0.5)*s;
+        const cy = offY + (y+0.5)*s;
+        if(i===0) ctx.moveTo(cx,cy);
+        else ctx.lineTo(cx,cy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // スタート/ゴール
+  function fillCell(x,y,fill){
+    const x0 = offX + x*s;
+    const y0 = offY + y*s;
+    ctx.fillStyle = fill;
+    ctx.fillRect(x0 + s*0.2, y0 + s*0.2, s*0.6, s*0.6);
+  }
+
+  fillCell(start[0], start[1], 'rgba(0,0,0,0.12)');
+  for(const [gx,gy] of goals){
+    fillCell(gx,gy,'rgba(0,0,0,0.28)');
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.font = `${Math.max(10, Math.floor(s*0.35))}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillText('S', offX + (start[0]+0.5)*s, offY + (start[1]+0.5)*s);
+  for(const [gx,gy] of goals){
+    ctx.fillText('G', offX + (gx+0.5)*s, offY + (gy+0.5)*s);
+  }
+}
+
+/* ===== 全体 ===== */
+let state = null;
+
+function generate(){
+  let cols = oddize(parseInt(document.getElementById('cols').value,10));
+  let rows = oddize(parseInt(document.getElementById('rows').value,10));
+  cols = clamp(cols, 11, 201);
+  rows = clamp(rows, 11, 201);
+
+  const goalCount = clamp(parseInt(document.getElementById('goals').value,10), 1, 40);
+  const loops = clamp(parseInt(document.getElementById('loops').value,10), 0, 5000);
+
+  const grid = makeGrid(cols, rows);
+  const sx = Math.floor(cols/2);
+  const sy = Math.floor(rows/2);
+
+  carveMazeDFS(grid, cols, rows, sx, sy);
+  if(loops > 0) addLoops(grid, cols, rows, loops);
+
+  const goals = pickGoalsOnBoundary(cols, rows, goalCount, sx, sy);
+
+  state = {grid, cols, rows, start:[sx,sy], goals};
+  redraw();
+}
+
+function computePaths(){
+  if(!state) return [];
+  const {grid, cols, rows, start, goals} = state;
+  const [sx,sy] = start;
+
+  const show = document.getElementById('showPath').checked;
+  if(!show) return [];
+
+  const mode = document.getElementById('pathMode').value;
+  const {prev, dist} = bfsAllPrev(grid, cols, rows, sx, sy);
+
+  if(mode === 'nearest'){
+    // 距離が最小のゴールを選ぶ
+    let best = null;
+    let bestD = Infinity;
+    for(const [gx,gy] of goals){
+      const d = dist[gy][gx];
+      if(d < bestD){
+        bestD = d;
+        best = [gx,gy];
+      }
+    }
+    if(!best || bestD === Infinity) return [];
+    return [reconstructPath(prev, sx, sy, best[0], best[1])];
+  } else {
+    // 全ゴール
+    const out = [];
+    for(const [gx,gy] of goals){
+      if(dist[gy][gx] === Infinity) continue;
+      out.push(reconstructPath(prev, sx, sy, gx, gy));
+    }
+    return out;
+  }
+}
+
+function redraw(){
+  if(!state) return;
+  const paths = computePaths();
+  draw(state.grid, state.cols, state.rows, state.start, state.goals, paths);
+}
+
+document.getElementById('gen').addEventListener('click', generate);
+document.getElementById('showPath').addEventListener('change', redraw);
+document.getElementById('pathMode').addEventListener('change', redraw);
+generate();
+</script>
+</body>
+</html>
