@@ -106,9 +106,9 @@ const DIRS = [
 ];
 
 const DIFFICULTY = {
-  easy: {stepMult: 1.8, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000, enemySpeed: 800},
-  normal: {stepMult: 1.4, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500, enemySpeed: 600},
-  hard: {stepMult: 1.2, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000, enemySpeed: 450}
+  easy: {stepMult: 2.2, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000, enemySpeed: 800, safeZone: 8},
+  normal: {stepMult: 1.8, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500, enemySpeed: 600, safeZone: 6},
+  hard: {stepMult: 1.5, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000, enemySpeed: 450, safeZone: 5}
 };
 
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
@@ -264,9 +264,8 @@ function placeItemsByDistance(distMap, cols, rows, minPct, maxPct, maxDist, coun
   return candidates.slice(0, Math.min(count, candidates.length));
 }
 
-function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount){
+function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount, safeZone){
   const [sx, sy] = start;
-  const allPathCells = new Set();
   const pathsByGoal = [];
   
   const {prev} = bfsAllPrev(grid, cols, rows, sx, sy);
@@ -278,9 +277,10 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
     const pathCells = [];
     for(let i=1; i<path.length-1; i++){
       const [px, py] = path[i];
-      const key = `${px},${py}`;
-      allPathCells.add(key);
-      pathCells.push({x:px, y:py, dist: distMap[py][px]});
+      const d = distMap[py][px];
+      // スタート付近と遠すぎる場所は除外
+      if(d < safeZone) continue;
+      pathCells.push({x:px, y:py, dist: d});
     }
     
     if(pathCells.length > 0){
@@ -306,7 +306,7 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
       
       const maxPathDist = cells[0].dist;
       const pct = d / maxPathDist;
-      if(pct < 0.3 || pct > 0.95) continue;
+      if(pct < 0.35 || pct > 0.95) continue;
       
       let tooClose = false;
       for(const [ex, ey] of selected){
@@ -323,12 +323,13 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
     }
   }
   
+  // 不足分は遠い場所に配置
   if(selected.length < totalCount){
     const candidates = [];
     for(let y=0; y<rows; y++){
       for(let x=0; x<cols; x++){
         const d = distMap[y][x];
-        if(d === Infinity || d < 5) continue;
+        if(d === Infinity || d < safeZone) continue;
         const key = `${x},${y}`;
         if(used.has(key)) continue;
         candidates.push({x, y, dist: d});
@@ -350,7 +351,6 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
       if(tooClose) continue;
       
       selected.push([x, y]);
-      used.add(`${x},${y}`);
     }
   }
   
@@ -389,13 +389,14 @@ function initGame(){
     if(d < minDist) minDist = d;
   }
   
-  const maxSteps = Math.ceil(minDist * diff.stepMult);
-  
   const healItems = placeItemsByDistance(distMap, cols, rows, 0.60, 0.75, minDist, 2);
   const invisItems = placeItemsByDistance(distMap, cols, rows, 0.35, 0.45, minDist, 1)
     .concat(placeItemsByDistance(distMap, cols, rows, 0.45, 0.55, minDist, 1));
   
-  const enemyPositions = placeEnemiesOnGoalPaths(grid, cols, rows, [sx, sy], goals, distMap, diff.enemyCount);
+  const healBonus = healItems.length * 20;
+  const maxSteps = Math.ceil(minDist * diff.stepMult) + Math.floor(healBonus * 0.5);
+  
+  const enemyPositions = placeEnemiesOnGoalPaths(grid, cols, rows, [sx, sy], goals, distMap, diff.enemyCount, diff.safeZone);
   const enemies = enemyPositions.map(([x,y])=>({
     x, y,
     targetX: x, targetY: y,
@@ -423,6 +424,7 @@ function initGame(){
   
   lastTime = performance.now();
   updateStatus();
+  draw();
   animFrame = requestAnimationFrame(gameLoop);
 }
 
@@ -852,6 +854,7 @@ function loadMaze(idx){
   
   lastTime = performance.now();
   updateStatus();
+  draw();
   animFrame = requestAnimationFrame(gameLoop);
 }
 
@@ -941,6 +944,7 @@ document.getElementById('importFile').addEventListener('change', (e) => {
       
       lastTime = performance.now();
       updateStatus();
+      draw();
       animFrame = requestAnimationFrame(gameLoop);
       
       alert('インポートしました!');
