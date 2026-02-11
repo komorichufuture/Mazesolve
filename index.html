@@ -3,35 +3,95 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Center Start + Multi Goals Maze (Path)</title>
+<title>迷路ゲーム - 保存・経路表示対応</title>
 <style>
-  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-  .wrap{display:grid;gap:12px;justify-items:center}
-  canvas{border:1px solid rgba(0,0,0,.2);border-radius:8px;touch-action:manipulation}
+  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+  .wrap{display:grid;gap:12px;justify-items:center;padding:20px;max-width:1400px}
+  canvas{border:2px solid rgba(0,0,0,.3);border-radius:8px;touch-action:manipulation;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
   .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
   button,input,select{font:inherit}
-  button{padding:8px 12px;border:1px solid rgba(0,0,0,.25);background:#fff;border-radius:8px;cursor:pointer}
-  label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px}
-  input[type="number"]{width:76px}
-  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff}
+  button{padding:10px 16px;border:1px solid rgba(0,0,0,.25);background:#fff;border-radius:8px;cursor:pointer;transition:all 0.2s}
+  button:hover{background:#f0f0f0;transform:translateY(-1px)}
+  button:active{transform:translateY(0)}
+  button.primary{background:#4CAF50;color:white;border-color:#4CAF50}
+  button.primary:hover{background:#45a049}
+  button.secondary{background:#2196F3;color:white;border-color:#2196F3}
+  button.secondary:hover{background:#1976D2}
+  label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px;background:#fff}
+  input[type="number"]{width:70px;padding:4px}
+  input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
+  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;cursor:pointer}
+  .status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px;background:rgba(255,255,255,0.95);border-radius:8px;font-size:16px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+  .status-item{display:flex;align-items:center;gap:6px}
+  .status-label{color:#666;font-weight:400}
+  .status-value{color:#111;font-weight:700}
+  .game-over{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:#fff;padding:40px 60px;border-radius:16px;text-align:center;font-size:24px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+  .game-over .rank{font-size:72px;font-weight:bold;margin:20px 0;text-shadow:0 0 20px rgba(255,255,255,0.5)}
+  .game-over .rank.S{color:#FFD700}
+  .game-over .rank.A{color:#C0C0C0}
+  .game-over .rank.B{color:#CD7F32}
+  .game-over button{margin-top:20px;font-size:18px;padding:12px 24px}
+  .hint{font-size:14px;color:#666;text-align:center;margin-top:8px}
+  .save-section{display:flex;gap:8px;align-items:center;padding:8px;background:rgba(255,255,255,0.8);border-radius:8px;border:1px solid rgba(0,0,0,0.1)}
+  .saved-list{max-height:150px;overflow-y:auto;display:flex;gap:4px;flex-wrap:wrap}
+  .saved-item{padding:6px 12px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:13px;display:flex;gap:6px;align-items:center}
+  .saved-item:hover{background:#f0f0f0}
+  .saved-item .del{color:#f44336;cursor:pointer;font-weight:bold}
+  .saved-item .del:hover{color:#d32f2f}
+  input[type="file"]{display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="bar">
-    <button id="gen">生成</button>
-    <label>列 <input id="cols" type="number" min="11" max="201" step="2" value="61"></label>
-    <label>行 <input id="rows" type="number" min="11" max="201" step="2" value="41"></label>
-    <label>ゴール数 <input id="goals" type="number" min="1" max="20" value="5"></label>
-    <label>複雑化(壁破壊) <input id="loops" type="number" min="0" max="1000" value="120"></label>
-
+    <button id="gen" class="primary">新しいゲーム</button>
+    <label>列 <input id="cols" type="number" min="21" max="101" step="2" value="41"></label>
+    <label>行 <input id="rows" type="number" min="21" max="101" step="2" value="31"></label>
+    <label>難易度 
+      <select id="difficulty">
+        <option value="easy">簡単</option>
+        <option value="normal" selected>普通</option>
+        <option value="hard">難しい</option>
+      </select>
+    </label>
+  </div>
+  
+  <div class="bar">
     <label><input id="showPath" type="checkbox" checked> 経路を表示</label>
-    <select id="pathMode" title="Path mode">
+    <select id="pathMode">
       <option value="nearest" selected>最短ゴール</option>
       <option value="all">全ゴール</option>
     </select>
   </div>
-  <canvas id="c" width="900" height="600"></canvas>
+  
+  <div class="status">
+    <div class="status-item">
+      <span class="status-label">残り歩数:</span>
+      <span class="status-value" id="stepsLeft">-</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">透明化:</span>
+      <span class="status-value" id="invisCount">-</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">モード:</span>
+      <span class="status-value" id="enemyMode">-</span>
+    </div>
+  </div>
+  
+  <canvas id="c" width="1000" height="700"></canvas>
+  
+  <div class="save-section">
+    <button id="saveBtn" class="secondary">💾 保存</button>
+    <button id="exportBtn">📤 エクスポート</button>
+    <button id="importBtn">📥 インポート</button>
+    <input type="file" id="importFile" accept=".json">
+    <div class="saved-list" id="savedList"></div>
+  </div>
+  
+  <div class="hint">
+    矢印キーまたはWASDで移動 | スペースキーで透明化使用 | 💊回復+20歩 | 👻透明化10歩
+  </div>
 </div>
 
 <script>
@@ -45,6 +105,12 @@ const DIRS = [
   {k:'W', dx:-1,dy:0,  opp:'E'},
 ];
 
+const DIFFICULTY = {
+  easy: {stepMult: 1.8, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000, enemySpeed: 800},
+  normal: {stepMult: 1.4, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500, enemySpeed: 600},
+  hard: {stepMult: 1.2, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000, enemySpeed: 450}
+};
+
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
 function oddize(n){ n = Math.round(n); return (n%2===0)? n+1 : n; }
 function randInt(n){ return Math.floor(Math.random()*n); }
@@ -56,6 +122,7 @@ function shuffle(a){
   return a;
 }
 function inBounds(x,y,cols,rows){ return x>=0 && y>=0 && x<cols && y<rows; }
+function dist(x1,y1,x2,y2){ return Math.abs(x1-x2) + Math.abs(y1-y2); }
 
 function makeGrid(cols, rows){
   return Array.from({length:rows}, (_,y)=>
@@ -130,17 +197,12 @@ function pickGoalsOnBoundary(cols, rows, count, startX, startY){
   return list.slice(0, clamp(count,1,list.length));
 }
 
-/* ===== 経路探索（BFS） =====
-   壁がない方向へだけ移動できるので、隣接グラフとしてBFS。
-   prev[ny][nx] に 直前セルを記録して復元。
-*/
 function neighbors(grid, cols, rows, x, y){
   const c = grid[y][x];
   const out = [];
   for(const d of DIRS){
     const nx = x + d.dx, ny = y + d.dy;
     if(!inBounds(nx,ny,cols,rows)) continue;
-    // 壁が開いているなら移動可
     if(c.w[d.k] === false){
       out.push([nx,ny]);
     }
@@ -150,29 +212,28 @@ function neighbors(grid, cols, rows, x, y){
 
 function bfsAllPrev(grid, cols, rows, sx, sy){
   const prev = Array.from({length:rows}, ()=>Array(cols).fill(null));
-  const dist = Array.from({length:rows}, ()=>Array(cols).fill(Infinity));
+  const distMap = Array.from({length:rows}, ()=>Array(cols).fill(Infinity));
   const qx = new Int32Array(cols*rows);
   const qy = new Int32Array(cols*rows);
   let head=0, tail=0;
 
-  dist[sy][sx] = 0;
+  distMap[sy][sx] = 0;
   qx[tail]=sx; qy[tail]=sy; tail++;
 
   while(head<tail){
     const x = qx[head], y = qy[head]; head++;
-    const d0 = dist[y][x];
+    const d0 = distMap[y][x];
     for(const [nx,ny] of neighbors(grid,cols,rows,x,y)){
-      if(dist[ny][nx] !== Infinity) continue;
-      dist[ny][nx] = d0 + 1;
+      if(distMap[ny][nx] !== Infinity) continue;
+      distMap[ny][nx] = d0 + 1;
       prev[ny][nx] = [x,y];
       qx[tail]=nx; qy[tail]=ny; tail++;
     }
   }
-  return {prev, dist};
+  return {prev, dist:distMap};
 }
 
 function reconstructPath(prev, sx, sy, gx, gy){
-  // 到達不能なら null（完全迷路＋ループ追加なら基本到達可能）
   if(prev[gy][gx] === null && !(sx===gx && sy===gy)) return null;
   const path = [];
   let x=gx, y=gy;
@@ -187,49 +248,411 @@ function reconstructPath(prev, sx, sy, gx, gy){
   return path;
 }
 
-/* ===== 描画 ===== */
-function draw(grid, cols, rows, start, goals, paths){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+function placeItemsByDistance(distMap, cols, rows, minPct, maxPct, maxDist, count){
+  const candidates = [];
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      const d = distMap[y][x];
+      if(d === Infinity || d === 0) continue;
+      const pct = d / maxDist;
+      if(pct >= minPct && pct <= maxPct){
+        candidates.push([x,y]);
+      }
+    }
+  }
+  shuffle(candidates);
+  return candidates.slice(0, Math.min(count, candidates.length));
+}
 
-  const pad = 16;
+function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount){
+  const [sx, sy] = start;
+  const allPathCells = new Set();
+  const pathsByGoal = [];
+  
+  const {prev} = bfsAllPrev(grid, cols, rows, sx, sy);
+  
+  for(const [gx, gy] of goals){
+    const path = reconstructPath(prev, sx, sy, gx, gy);
+    if(!path) continue;
+    
+    const pathCells = [];
+    for(let i=1; i<path.length-1; i++){
+      const [px, py] = path[i];
+      const key = `${px},${py}`;
+      allPathCells.add(key);
+      pathCells.push({x:px, y:py, dist: distMap[py][px]});
+    }
+    
+    if(pathCells.length > 0){
+      pathsByGoal.push({goal: [gx,gy], cells: pathCells});
+    }
+  }
+  
+  const selected = [];
+  const used = new Set();
+  
+  const enemiesPerPath = Math.ceil(totalCount / pathsByGoal.length);
+  
+  for(const {cells} of pathsByGoal){
+    cells.sort((a,b) => b.dist - a.dist);
+    
+    let placed = 0;
+    for(const {x, y, dist: d} of cells){
+      if(placed >= enemiesPerPath) break;
+      if(selected.length >= totalCount) break;
+      
+      const key = `${x},${y}`;
+      if(used.has(key)) continue;
+      
+      const maxPathDist = cells[0].dist;
+      const pct = d / maxPathDist;
+      if(pct < 0.3 || pct > 0.95) continue;
+      
+      let tooClose = false;
+      for(const [ex, ey] of selected){
+        if(dist(x, y, ex, ey) < 4){
+          tooClose = true;
+          break;
+        }
+      }
+      if(tooClose) continue;
+      
+      selected.push([x, y]);
+      used.add(key);
+      placed++;
+    }
+  }
+  
+  if(selected.length < totalCount){
+    const candidates = [];
+    for(let y=0; y<rows; y++){
+      for(let x=0; x<cols; x++){
+        const d = distMap[y][x];
+        if(d === Infinity || d < 5) continue;
+        const key = `${x},${y}`;
+        if(used.has(key)) continue;
+        candidates.push({x, y, dist: d});
+      }
+    }
+    
+    candidates.sort((a,b) => b.dist - a.dist);
+    
+    for(const {x, y} of candidates){
+      if(selected.length >= totalCount) break;
+      
+      let tooClose = false;
+      for(const [ex, ey] of selected){
+        if(dist(x, y, ex, ey) < 4){
+          tooClose = true;
+          break;
+        }
+      }
+      if(tooClose) continue;
+      
+      selected.push([x, y]);
+      used.add(`${x},${y}`);
+    }
+  }
+  
+  return selected;
+}
+
+let game = null;
+let animFrame = null;
+let lastTime = 0;
+
+function initGame(){
+  if(animFrame) cancelAnimationFrame(animFrame);
+  
+  let cols = oddize(parseInt(document.getElementById('cols').value,10));
+  let rows = oddize(parseInt(document.getElementById('rows').value,10));
+  cols = clamp(cols, 21, 101);
+  rows = clamp(rows, 21, 101);
+  
+  const diffKey = document.getElementById('difficulty').value;
+  const diff = DIFFICULTY[diffKey];
+  
+  const grid = makeGrid(cols, rows);
+  const sx = Math.floor(cols/2);
+  const sy = Math.floor(rows/2);
+  
+  carveMazeDFS(grid, cols, rows, sx, sy);
+  addLoops(grid, cols, rows, Math.floor(cols * rows * 0.02));
+  
+  const goals = pickGoalsOnBoundary(cols, rows, 3, sx, sy);
+  
+  const {prev, dist:distMap} = bfsAllPrev(grid, cols, rows, sx, sy);
+  
+  let minDist = Infinity;
+  for(const [gx,gy] of goals){
+    const d = distMap[gy][gx];
+    if(d < minDist) minDist = d;
+  }
+  
+  const maxSteps = Math.ceil(minDist * diff.stepMult);
+  
+  const healItems = placeItemsByDistance(distMap, cols, rows, 0.60, 0.75, minDist, 2);
+  const invisItems = placeItemsByDistance(distMap, cols, rows, 0.35, 0.45, minDist, 1)
+    .concat(placeItemsByDistance(distMap, cols, rows, 0.45, 0.55, minDist, 1));
+  
+  const enemyPositions = placeEnemiesOnGoalPaths(grid, cols, rows, [sx, sy], goals, distMap, diff.enemyCount);
+  const enemies = enemyPositions.map(([x,y])=>({
+    x, y,
+    targetX: x, targetY: y,
+    scatterTarget: {x: randInt(cols), y: randInt(rows)},
+    moveTimer: 0
+  }));
+  
+  game = {
+    grid, cols, rows,
+    player: {x: sx, y: sy},
+    goals,
+    enemies,
+    healItems,
+    invisItems,
+    maxSteps,
+    stepsLeft: maxSteps,
+    invisRemaining: 2,
+    invisActive: 0,
+    gameOver: false,
+    won: false,
+    enemyMode: 'chase',
+    modeTimer: 0,
+    diff
+  };
+  
+  lastTime = performance.now();
+  updateStatus();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function updateStatus(){
+  if(!game) return;
+  document.getElementById('stepsLeft').textContent = game.stepsLeft;
+  document.getElementById('invisCount').textContent = `${game.invisRemaining}回 (${Math.ceil(game.invisActive/10)}歩)`;
+  document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡中' : '散開中';
+}
+
+function movePlayer(dx, dy){
+  if(!game || game.gameOver) return;
+  
+  const {player, grid, cols, rows} = game;
+  const cell = grid[player.y][player.x];
+  
+  let dirKey = null;
+  if(dx===0 && dy===-1) dirKey = 'N';
+  else if(dx===1 && dy===0) dirKey = 'E';
+  else if(dx===0 && dy===1) dirKey = 'S';
+  else if(dx===-1 && dy===0) dirKey = 'W';
+  
+  if(!dirKey || cell.w[dirKey]) return;
+  
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+  if(!inBounds(nx,ny,cols,rows)) return;
+  
+  player.x = nx;
+  player.y = ny;
+  game.stepsLeft--;
+  
+  if(game.invisActive > 0) game.invisActive--;
+  
+  for(const [gx,gy] of game.goals){
+    if(player.x === gx && player.y === gy){
+      game.won = true;
+      game.gameOver = true;
+      showGameOver();
+      return;
+    }
+  }
+  
+  for(let i=game.healItems.length-1; i>=0; i--){
+    const [hx,hy] = game.healItems[i];
+    if(player.x === hx && player.y === hy){
+      game.stepsLeft += 20;
+      game.healItems.splice(i,1);
+    }
+  }
+  
+  for(let i=game.invisItems.length-1; i>=0; i--){
+    const [ix,iy] = game.invisItems[i];
+    if(player.x === ix && player.y === iy){
+      game.invisRemaining++;
+      game.invisItems.splice(i,1);
+    }
+  }
+  
+  if(game.stepsLeft <= 0){
+    game.gameOver = true;
+    showGameOver();
+    return;
+  }
+  
+  updateStatus();
+}
+
+function useInvisibility(){
+  if(!game || game.gameOver) return;
+  if(game.invisRemaining > 0 && game.invisActive === 0){
+    game.invisRemaining--;
+    game.invisActive = 10;
+    updateStatus();
+  }
+}
+
+function showGameOver(){
+  const modal = document.createElement('div');
+  modal.className = 'game-over';
+  
+  if(game.won){
+    const remaining = game.stepsLeft;
+    const total = game.maxSteps;
+    const ratio = remaining / total;
+    
+    let rank = 'B';
+    if(ratio >= 0.3) rank = 'S';
+    else if(ratio >= 0.15) rank = 'A';
+    
+    modal.innerHTML = `
+      <div>🎉 クリア! 🎉</div>
+      <div class="rank ${rank}">${rank}</div>
+      <div>残り歩数: ${remaining} / ${total}</div>
+      <button onclick="location.reload()">もう一度</button>
+    `;
+  } else {
+    modal.innerHTML = `
+      <div>💀 ゲームオーバー 💀</div>
+      <div>${game.stepsLeft <= 0 ? '歩数切れ' : '敵に捕まった'}</div>
+      <button onclick="location.reload()">リトライ</button>
+    `;
+  }
+  
+  document.body.appendChild(modal);
+}
+
+function updateEnemies(dt){
+  if(!game || game.gameOver) return;
+  
+  const {player, enemies, grid, cols, rows, enemyMode, diff} = game;
+  
+  game.modeTimer += dt;
+  if(enemyMode === 'chase' && game.modeTimer >= diff.scatterInterval){
+    game.enemyMode = 'scatter';
+    game.modeTimer = 0;
+    enemies.forEach(e => {
+      e.scatterTarget = {x: randInt(cols), y: randInt(rows)};
+    });
+    updateStatus();
+  } else if(enemyMode === 'scatter' && game.modeTimer >= diff.scatterDuration){
+    game.enemyMode = 'chase';
+    game.modeTimer = 0;
+    updateStatus();
+  }
+  
+  for(const enemy of enemies){
+    enemy.moveTimer += dt;
+    if(enemy.moveTimer < diff.enemySpeed) continue;
+    enemy.moveTimer = 0;
+    
+    const target = game.enemyMode === 'chase' 
+      ? {x: player.x, y: player.y}
+      : enemy.scatterTarget;
+    
+    const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
+    if(possibleMoves.length === 0) continue;
+    
+    let best = possibleMoves[0];
+    
+    if(game.enemyMode === 'chase'){
+      const {dist: playerDistMap} = bfsAllPrev(grid, cols, rows, target.x, target.y);
+      let bestPathDist = playerDistMap[best[1]][best[0]];
+      
+      for(const [nx,ny] of possibleMoves){
+        const pathDist = playerDistMap[ny][nx];
+        if(pathDist < bestPathDist){
+          bestPathDist = pathDist;
+          best = [nx,ny];
+        }
+      }
+    } else {
+      let bestDist = dist(best[0], best[1], target.x, target.y);
+      for(const [nx,ny] of possibleMoves){
+        const d = dist(nx, ny, target.x, target.y);
+        if(d < bestDist){
+          bestDist = d;
+          best = [nx,ny];
+        }
+      }
+    }
+    
+    enemy.x = best[0];
+    enemy.y = best[1];
+    
+    if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
+      game.gameOver = true;
+      showGameOver();
+      return;
+    }
+  }
+}
+
+function computePaths(){
+  if(!game) return [];
+  
+  const showPath = document.getElementById('showPath').checked;
+  if(!showPath) return [];
+  
+  const {grid, cols, rows, player, goals} = game;
+  const mode = document.getElementById('pathMode').value;
+  const {prev, dist} = bfsAllPrev(grid, cols, rows, player.x, player.y);
+  
+  if(mode === 'nearest'){
+    let best = null;
+    let bestD = Infinity;
+    for(const [gx,gy] of goals){
+      const d = dist[gy][gx];
+      if(d < bestD){
+        bestD = d;
+        best = [gx,gy];
+      }
+    }
+    if(!best || bestD === Infinity) return [];
+    return [reconstructPath(prev, player.x, player.y, best[0], best[1])];
+  } else {
+    const out = [];
+    for(const [gx,gy] of goals){
+      if(dist[gy][gx] === Infinity) continue;
+      out.push(reconstructPath(prev, player.x, player.y, gx, gy));
+    }
+    return out;
+  }
+}
+
+function draw(){
+  if(!game) return;
+  
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  
+  const {grid, cols, rows, player, goals, enemies, healItems, invisItems} = game;
+  
+  const pad = 20;
   const cellW = (canvas.width - pad*2) / cols;
   const cellH = (canvas.height - pad*2) / rows;
   const s = Math.min(cellW, cellH);
   const offX = (canvas.width  - cols*s)/2;
   const offY = (canvas.height - rows*s)/2;
-
+  
   ctx.fillStyle = '#fff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // 壁
-  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-  ctx.lineWidth = Math.max(1, Math.floor(s*0.08));
-  ctx.lineCap = 'square';
-
-  ctx.beginPath();
-  for(let y=0;y<rows;y++){
-    for(let x=0;x<cols;x++){
-      const c = grid[y][x];
-      const x0 = offX + x*s;
-      const y0 = offY + y*s;
-      const x1 = x0 + s;
-      const y1 = y0 + s;
-
-      if(c.w.N){ ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); }
-      if(c.w.E){ ctx.moveTo(x1,y0); ctx.lineTo(x1,y1); }
-      if(c.w.S){ ctx.moveTo(x0,y1); ctx.lineTo(x1,y1); }
-      if(c.w.W){ ctx.moveTo(x0,y0); ctx.lineTo(x0,y1); }
-    }
-  }
-  ctx.stroke();
-
-  // 経路（壁の上から描く）
+  
+  // 経路描画
+  const paths = computePaths();
   if(paths && paths.length){
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = Math.max(2, Math.floor(s*0.18));
+    ctx.strokeStyle = 'rgba(76, 175, 80, 0.35)';
+    ctx.lineWidth = Math.max(3, Math.floor(s*0.22));
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-
+    
     for(const path of paths){
       if(!path || path.length<2) continue;
       ctx.beginPath();
@@ -243,101 +666,343 @@ function draw(grid, cols, rows, start, goals, paths){
       ctx.stroke();
     }
   }
-
-  // スタート/ゴール
-  function fillCell(x,y,fill){
-    const x0 = offX + x*s;
-    const y0 = offY + y*s;
-    ctx.fillStyle = fill;
-    ctx.fillRect(x0 + s*0.2, y0 + s*0.2, s*0.6, s*0.6);
+  
+  // 壁
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = Math.max(2, Math.floor(s*0.1));
+  ctx.lineCap = 'square';
+  
+  ctx.beginPath();
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      const c = grid[y][x];
+      const x0 = offX + x*s;
+      const y0 = offY + y*s;
+      const x1 = x0 + s;
+      const y1 = y0 + s;
+      
+      if(c.w.N){ ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); }
+      if(c.w.E){ ctx.moveTo(x1,y0); ctx.lineTo(x1,y1); }
+      if(c.w.S){ ctx.moveTo(x0,y1); ctx.lineTo(x1,y1); }
+      if(c.w.W){ ctx.moveTo(x0,y0); ctx.lineTo(x0,y1); }
+    }
   }
-
-  fillCell(start[0], start[1], 'rgba(0,0,0,0.12)');
+  ctx.stroke();
+  
+  // ゴール
   for(const [gx,gy] of goals){
-    fillCell(gx,gy,'rgba(0,0,0,0.28)');
+    const cx = offX + (gx+0.5)*s;
+    const cy = offY + (gy+0.5)*s;
+    const r = s*0.35;
+    
+    ctx.fillStyle = '#4CAF50';
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(s*0.4)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('G', cx, cy);
   }
-
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.font = `${Math.max(10, Math.floor(s*0.35))}px system-ui`;
+  
+  // 回復アイテム
+  for(const [hx,hy] of healItems){
+    const cx = offX + (hx+0.5)*s;
+    const cy = offY + (hy+0.5)*s;
+    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💊', cx, cy);
+  }
+  
+  // 透明化アイテム
+  for(const [ix,iy] of invisItems){
+    const cx = offX + (ix+0.5)*s;
+    const cy = offY + (iy+0.5)*s;
+    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('👻', cx, cy);
+  }
+  
+  // 敵
+  for(const enemy of enemies){
+    const cx = offX + (enemy.x+0.5)*s;
+    const cy = offY + (enemy.y+0.5)*s;
+    const r = s*0.32;
+    
+    ctx.fillStyle = game.enemyMode === 'chase' ? '#f44336' : '#FF9800';
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx-r*0.3, cy-r*0.2, r*0.25, 0, Math.PI*2);
+    ctx.arc(cx+r*0.3, cy-r*0.2, r*0.25, 0, Math.PI*2);
+    ctx.fill();
+  }
+  
+  // プレイヤー
+  const px = offX + (player.x+0.5)*s;
+  const py = offY + (player.y+0.5)*s;
+  const pr = s*0.35;
+  
+  if(game.invisActive > 0){
+    ctx.globalAlpha = 0.4;
+  }
+  
+  ctx.fillStyle = '#2196F3';
+  ctx.beginPath();
+  ctx.arc(px,py,pr,0,Math.PI*2);
+  ctx.fill();
+  
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${Math.floor(s*0.4)}px Arial`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.fillText('P', px, py);
+}
 
-  ctx.fillText('S', offX + (start[0]+0.5)*s, offY + (start[1]+0.5)*s);
-  for(const [gx,gy] of goals){
-    ctx.fillText('G', offX + (gx+0.5)*s, offY + (gy+0.5)*s);
+function gameLoop(time){
+  const dt = time - lastTime;
+  lastTime = time;
+  
+  updateEnemies(dt);
+  draw();
+  
+  if(!game.gameOver){
+    animFrame = requestAnimationFrame(gameLoop);
   }
 }
 
-/* ===== 全体 ===== */
-let state = null;
-
-function generate(){
-  let cols = oddize(parseInt(document.getElementById('cols').value,10));
-  let rows = oddize(parseInt(document.getElementById('rows').value,10));
-  cols = clamp(cols, 11, 201);
-  rows = clamp(rows, 11, 201);
-
-  const goalCount = clamp(parseInt(document.getElementById('goals').value,10), 1, 40);
-  const loops = clamp(parseInt(document.getElementById('loops').value,10), 0, 5000);
-
-  const grid = makeGrid(cols, rows);
-  const sx = Math.floor(cols/2);
-  const sy = Math.floor(rows/2);
-
-  carveMazeDFS(grid, cols, rows, sx, sy);
-  if(loops > 0) addLoops(grid, cols, rows, loops);
-
-  const goals = pickGoalsOnBoundary(cols, rows, goalCount, sx, sy);
-
-  state = {grid, cols, rows, start:[sx,sy], goals};
-  redraw();
+// 保存・読み込み機能
+function saveMaze(){
+  if(!game) return;
+  
+  const name = prompt('迷路の名前:', `迷路_${new Date().toLocaleTimeString('ja-JP')}`);
+  if(!name) return;
+  
+  const data = {
+    name,
+    time: Date.now(),
+    grid: game.grid,
+    cols: game.cols,
+    rows: game.rows,
+    player: game.player,
+    goals: game.goals,
+    enemies: game.enemies.map(e => ({x: e.x, y: e.y})),
+    healItems: game.healItems,
+    invisItems: game.invisItems,
+    maxSteps: game.maxSteps,
+    difficulty: document.getElementById('difficulty').value
+  };
+  
+  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
+  saved.push(data);
+  localStorage.setItem('savedMazes', JSON.stringify(saved));
+  
+  updateSavedList();
+  alert('保存しました!');
 }
 
-function computePaths(){
-  if(!state) return [];
-  const {grid, cols, rows, start, goals} = state;
-  const [sx,sy] = start;
+function loadMaze(idx){
+  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
+  if(idx < 0 || idx >= saved.length) return;
+  
+  const data = saved[idx];
+  
+  if(animFrame) cancelAnimationFrame(animFrame);
+  
+  document.getElementById('cols').value = data.cols;
+  document.getElementById('rows').value = data.rows;
+  document.getElementById('difficulty').value = data.difficulty;
+  
+  const diff = DIFFICULTY[data.difficulty];
+  
+  const enemies = data.enemies.map(({x,y})=>({
+    x, y,
+    targetX: x, targetY: y,
+    scatterTarget: {x: randInt(data.cols), y: randInt(data.rows)},
+    moveTimer: 0
+  }));
+  
+  game = {
+    grid: data.grid,
+    cols: data.cols,
+    rows: data.rows,
+    player: {...data.player},
+    goals: data.goals,
+    enemies,
+    healItems: [...data.healItems],
+    invisItems: [...data.invisItems],
+    maxSteps: data.maxSteps,
+    stepsLeft: data.maxSteps,
+    invisRemaining: 2,
+    invisActive: 0,
+    gameOver: false,
+    won: false,
+    enemyMode: 'chase',
+    modeTimer: 0,
+    diff
+  };
+  
+  lastTime = performance.now();
+  updateStatus();
+  animFrame = requestAnimationFrame(gameLoop);
+}
 
-  const show = document.getElementById('showPath').checked;
-  if(!show) return [];
+function deleteMaze(idx){
+  if(!confirm('削除しますか?')) return;
+  
+  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
+  saved.splice(idx, 1);
+  localStorage.setItem('savedMazes', JSON.stringify(saved));
+  updateSavedList();
+}
 
-  const mode = document.getElementById('pathMode').value;
-  const {prev, dist} = bfsAllPrev(grid, cols, rows, sx, sy);
+function exportMaze(){
+  if(!game) return;
+  
+  const data = {
+    name: `迷路_${new Date().toLocaleString('ja-JP')}`,
+    time: Date.now(),
+    grid: game.grid,
+    cols: game.cols,
+    rows: game.rows,
+    player: game.player,
+    goals: game.goals,
+    enemies: game.enemies.map(e => ({x: e.x, y: e.y})),
+    healItems: game.healItems,
+    invisItems: game.invisItems,
+    maxSteps: game.maxSteps,
+    difficulty: document.getElementById('difficulty').value
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `maze_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-  if(mode === 'nearest'){
-    // 距離が最小のゴールを選ぶ
-    let best = null;
-    let bestD = Infinity;
-    for(const [gx,gy] of goals){
-      const d = dist[gy][gx];
-      if(d < bestD){
-        bestD = d;
-        best = [gx,gy];
-      }
+function importMaze(){
+  document.getElementById('importFile').click();
+}
+
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const data = JSON.parse(evt.target.result);
+      
+      if(animFrame) cancelAnimationFrame(animFrame);
+      
+      document.getElementById('cols').value = data.cols;
+      document.getElementById('rows').value = data.rows;
+      document.getElementById('difficulty').value = data.difficulty;
+      
+      const diff = DIFFICULTY[data.difficulty];
+      
+      const enemies = data.enemies.map(({x,y})=>({
+        x, y,
+        targetX: x, targetY: y,
+        scatterTarget: {x: randInt(data.cols), y: randInt(data.rows)},
+        moveTimer: 0
+      }));
+      
+      game = {
+        grid: data.grid,
+        cols: data.cols,
+        rows: data.rows,
+        player: {...data.player},
+        goals: data.goals,
+        enemies,
+        healItems: [...data.healItems],
+        invisItems: [...data.invisItems],
+        maxSteps: data.maxSteps,
+        stepsLeft: data.maxSteps,
+        invisRemaining: 2,
+        invisActive: 0,
+        gameOver: false,
+        won: false,
+        enemyMode: 'chase',
+        modeTimer: 0,
+        diff
+      };
+      
+      lastTime = performance.now();
+      updateStatus();
+      animFrame = requestAnimationFrame(gameLoop);
+      
+      alert('インポートしました!');
+    } catch(err){
+      alert('ファイル読み込みエラー: ' + err.message);
     }
-    if(!best || bestD === Infinity) return [];
-    return [reconstructPath(prev, sx, sy, best[0], best[1])];
-  } else {
-    // 全ゴール
-    const out = [];
-    for(const [gx,gy] of goals){
-      if(dist[gy][gx] === Infinity) continue;
-      out.push(reconstructPath(prev, sx, sy, gx, gy));
-    }
-    return out;
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function updateSavedList(){
+  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
+  const list = document.getElementById('savedList');
+  
+  if(saved.length === 0){
+    list.innerHTML = '<div style="color:#999; font-size:13px">保存なし</div>';
+    return;
   }
+  
+  list.innerHTML = saved.map((m, i) => `
+    <div class="saved-item">
+      <span onclick="loadMaze(${i})" style="cursor:pointer">${m.name}</span>
+      <span class="del" onclick="deleteMaze(${i})">×</span>
+    </div>
+  `).join('');
 }
 
-function redraw(){
-  if(!state) return;
-  const paths = computePaths();
-  draw(state.grid, state.cols, state.rows, state.start, state.goals, paths);
-}
+document.getElementById('gen').addEventListener('click', initGame);
+document.getElementById('saveBtn').addEventListener('click', saveMaze);
+document.getElementById('exportBtn').addEventListener('click', exportMaze);
+document.getElementById('importBtn').addEventListener('click', importMaze);
+document.getElementById('showPath').addEventListener('change', draw);
+document.getElementById('pathMode').addEventListener('change', draw);
 
-document.getElementById('gen').addEventListener('click', generate);
-document.getElementById('showPath').addEventListener('change', redraw);
-document.getElementById('pathMode').addEventListener('change', redraw);
-generate();
+document.addEventListener('keydown', e => {
+  if(!game || game.gameOver) return;
+  
+  const key = e.key.toLowerCase();
+  
+  if(key === 'arrowup' || key === 'w'){
+    e.preventDefault();
+    movePlayer(0,-1);
+  } else if(key === 'arrowdown' || key === 's'){
+    e.preventDefault();
+    movePlayer(0,1);
+  } else if(key === 'arrowleft' || key === 'a'){
+    e.preventDefault();
+    movePlayer(-1,0);
+  } else if(key === 'arrowright' || key === 'd'){
+    e.preventDefault();
+    movePlayer(1,0);
+  } else if(key === ' '){
+    e.preventDefault();
+    useInvisibility();
+  }
+  
+  draw();
+});
+
+updateSavedList();
+initGame();
 </script>
 </body>
 </html>
