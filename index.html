@@ -2,41 +2,196 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>迷路ゲーム - 歩数制限＋敵＋アイテム＋洗脳</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>迷路ゲーム - モバイル対応版</title>
 <style>
-  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-  .wrap{display:grid;gap:12px;justify-items:center;padding:20px}
-  canvas{border:2px solid rgba(0,0,0,.3);border-radius:8px;touch-action:manipulation;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
-  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
-  button,input,select{font:inherit}
-  button{padding:10px 16px;border:1px solid rgba(0,0,0,.25);background:#fff;border-radius:8px;cursor:pointer;transition:all 0.2s}
-  button:hover{background:#f0f0f0;transform:translateY(-1px)}
-  button:active{transform:translateY(0)}
-  button.primary{background:#4CAF50;color:white;border-color:#4CAF50}
-  button.primary:hover{background:#45a049}
-  label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px;background:#fff}
-  input[type="number"]{width:70px;padding:4px}
-  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff}
-  .status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px;background:rgba(255,255,255,0.95);border-radius:8px;font-size:16px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-  .status-item{display:flex;align-items:center;gap:6px}
-  .status-label{color:#666;font-weight:400}
-  .status-value{color:#111;font-weight:700}
-  .game-over{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:#fff;padding:40px 60px;border-radius:16px;text-align:center;font-size:24px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-  .game-over .rank{font-size:72px;font-weight:bold;margin:20px 0;text-shadow:0 0 20px rgba(255,255,255,0.5)}
-  .game-over .rank.S{color:#FFD700}
-  .game-over .rank.A{color:#C0C0C0}
-  .game-over .rank.B{color:#CD7F32}
-  .game-over button{margin-top:20px;font-size:18px;padding:12px 24px}
-  .hint{font-size:14px;color:#666;text-align:center;margin-top:8px}
+  * {margin:0;padding:0;box-sizing:border-box;}
+  body{
+    width:100vw;
+    height:100vh;
+    overflow:hidden;
+    background:#f5f5f5;
+    color:#111;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    display:flex;
+    flex-direction:column;
+  }
+  
+  .top-bar{
+    background:rgba(255,255,255,0.95);
+    padding:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    z-index:100;
+  }
+  
+  .controls{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:6px;
+  }
+  
+  button,input,select{font:inherit;font-size:12px;}
+  button{
+    padding:6px 12px;
+    border:1px solid rgba(0,0,0,.25);
+    background:#fff;
+    border-radius:6px;
+    cursor:pointer;
+    transition:all 0.2s;
+  }
+  button:active{background:#e0e0e0;transform:scale(0.95);}
+  button.primary{background:#4CAF50;color:white;border-color:#4CAF50;}
+  
+  label{
+    display:flex;
+    gap:4px;
+    align-items:center;
+    font-size:11px;
+  }
+  input[type="number"]{width:50px;padding:3px;font-size:11px;}
+  select{padding:4px 8px;border:1px solid rgba(0,0,0,.15);border-radius:6px;background:#fff;}
+  
+  .status{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    font-weight:600;
+  }
+  .status-item{display:flex;align-items:center;gap:4px;}
+  .status-label{color:#666;font-weight:400;}
+  .status-value{color:#111;font-weight:700;}
+  
+  .game-container{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+    background:#fff;
+  }
+  
+  canvas{
+    display:block;
+    width:100%;
+    height:100%;
+    touch-action:none;
+  }
+  
+  .mobile-controls{
+    position:absolute;
+    bottom:20px;
+    left:0;
+    right:0;
+    display:flex;
+    justify-content:space-between;
+    padding:0 20px;
+    pointer-events:none;
+    z-index:50;
+  }
+  
+  .dpad{
+    position:relative;
+    width:140px;
+    height:140px;
+    pointer-events:all;
+  }
+  
+  .dpad-btn{
+    position:absolute;
+    width:50px;
+    height:50px;
+    background:rgba(255,255,255,0.85);
+    border:2px solid rgba(0,0,0,0.3);
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    font-weight:bold;
+    color:#333;
+    user-select:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  }
+  
+  .dpad-btn:active{
+    background:rgba(200,200,200,0.95);
+    transform:scale(0.95);
+  }
+  
+  .dpad-up{top:0;left:45px;}
+  .dpad-down{bottom:0;left:45px;}
+  .dpad-left{top:45px;left:0;}
+  .dpad-right{top:45px;right:0;}
+  
+  .action-btns{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    pointer-events:all;
+  }
+  
+  .invis-btn{
+    width:70px;
+    height:70px;
+    background:rgba(139,69,255,0.9);
+    border:3px solid rgba(255,255,255,0.8);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:32px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    user-select:none;
+  }
+  
+  .invis-btn:active{
+    background:rgba(100,50,200,0.95);
+    transform:scale(0.95);
+  }
+  
+  .game-over{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.95);
+    color:#fff;
+    padding:30px 40px;
+    border-radius:16px;
+    text-align:center;
+    font-size:20px;
+    z-index:1000;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    max-width:90vw;
+  }
+  .game-over .rank{
+    font-size:60px;
+    font-weight:bold;
+    margin:15px 0;
+    text-shadow:0 0 20px rgba(255,255,255,0.5);
+  }
+  .game-over .rank.S{color:#FFD700;}
+  .game-over .rank.A{color:#C0C0C0;}
+  .game-over .rank.B{color:#CD7F32;}
+  .game-over button{margin-top:15px;font-size:16px;padding:10px 20px;}
+  
+  @media (max-width: 600px) {
+    .controls{font-size:11px;}
+    .status{font-size:11px;}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="bar">
-    <button id="gen" class="primary">新しいゲーム</button>
-    <label>列 <input id="cols" type="number" min="21" max="101" step="2" value="41"></label>
-    <label>行 <input id="rows" type="number" min="21" max="101" step="2" value="31"></label>
+
+<div class="top-bar">
+  <div class="controls">
+    <button id="gen" class="primary">新ゲーム</button>
+    <label>列 <input id="cols" type="number" min="15" max="51" step="2" value="21"></label>
+    <label>行 <input id="rows" type="number" min="25" max="71" step="2" value="41"></label>
     <label>難易度 
       <select id="difficulty">
         <option value="easy">簡単</option>
@@ -48,11 +203,11 @@
   
   <div class="status">
     <div class="status-item">
-      <span class="status-label">残り歩数:</span>
+      <span class="status-label">歩数:</span>
       <span class="status-value" id="stepsLeft">-</span>
     </div>
     <div class="status-item">
-      <span class="status-label">透明化:</span>
+      <span class="status-label">透明:</span>
       <span class="status-value" id="invisCount">-</span>
     </div>
     <div class="status-item">
@@ -60,23 +215,47 @@
       <span class="status-value" id="enemyMode">-</span>
     </div>
     <div class="status-item">
-      <span class="status-label">洗脳敵:</span>
+      <span class="status-label">洗脳:</span>
       <span class="status-value" id="brainwashedCount">0</span>
     </div>
   </div>
+</div>
+
+<div class="game-container">
+  <canvas id="c"></canvas>
   
-  <canvas id="c" width="1000" height="700"></canvas>
-  
-  <div class="hint">
-    矢印キーまたはWASDで移動 | スペースキーで透明化使用 | 💊回復アイテム | 👻透明化アイテム<br>
-    透明化中に敵に当たると洗脳！洗脳された敵（青）は他の敵を攻撃します<br>
-    キャラクター：人→女（透明化1回）→妖（透明化2回） | 敵：兵→男（洗脳）
+  <div class="mobile-controls">
+    <div class="dpad">
+      <div class="dpad-btn dpad-up" data-dir="up">↑</div>
+      <div class="dpad-btn dpad-down" data-dir="down">↓</div>
+      <div class="dpad-btn dpad-left" data-dir="left">←</div>
+      <div class="dpad-btn dpad-right" data-dir="right">→</div>
+    </div>
+    
+    <div class="action-btns">
+      <div class="invis-btn" id="invisBtn">👻</div>
+    </div>
   </div>
 </div>
 
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+
+// キャンバスサイズをウィンドウに合わせる
+function resizeCanvas(){
+  const container = document.querySelector('.game-container');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = container.clientWidth * dpr;
+  canvas.height = container.clientHeight * dpr;
+  canvas.style.width = container.clientWidth + 'px';
+  canvas.style.height = container.clientHeight + 'px';
+  ctx.scale(dpr, dpr);
+  if(game) draw();
+}
+window.addEventListener('resize', resizeCanvas);
+// 初期化を遅延実行
+setTimeout(resizeCanvas, 100);
 
 const DIRS = [
   {k:'N', dx:0, dy:-1, opp:'S'},
@@ -86,9 +265,9 @@ const DIRS = [
 ];
 
 const DIFFICULTY = {
-  easy: {stepMult: 1.8, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000},
-  normal: {stepMult: 1.4, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500},
-  hard: {stepMult: 1.2, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000}
+  easy: {stepMult: 1.8, enemyCount: 3, scatterInterval: 8000, scatterDuration: 3000},
+  normal: {stepMult: 1.4, enemyCount: 5, scatterInterval: 10000, scatterDuration: 2500},
+  hard: {stepMult: 1.2, enemyCount: 7, scatterInterval: 12000, scatterDuration: 2000}
 };
 
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
@@ -246,7 +425,6 @@ function placeItemsByDistance(distMap, cols, rows, minPct, maxPct, maxDist, coun
 
 function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount){
   const [sx, sy] = start;
-  const allPathCells = new Set();
   const pathsByGoal = [];
   
   const {prev} = bfsAllPrev(grid, cols, rows, sx, sy);
@@ -258,8 +436,6 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
     const pathCells = [];
     for(let i=1; i<path.length-1; i++){
       const [px, py] = path[i];
-      const key = `${px},${py}`;
-      allPathCells.add(key);
       pathCells.push({x:px, y:py, dist: distMap[py][px]});
     }
     
@@ -330,24 +506,19 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
       if(tooClose) continue;
       
       selected.push([x, y]);
-      used.add(`${x},${y}`);
     }
   }
   
   return selected;
 }
 
-/* ===== ゲーム状態 ===== */
 let game = null;
-let animFrame = null;
 
 function initGame(){
-  if(animFrame) cancelAnimationFrame(animFrame);
-  
   let cols = oddize(parseInt(document.getElementById('cols').value,10));
   let rows = oddize(parseInt(document.getElementById('rows').value,10));
-  cols = clamp(cols, 21, 101);
-  rows = clamp(rows, 21, 101);
+  cols = clamp(cols, 15, 51);
+  rows = clamp(rows, 25, 71);
   
   const diffKey = document.getElementById('difficulty').value;
   const diff = DIFFICULTY[diffKey];
@@ -379,8 +550,8 @@ function initGame(){
   const enemies = enemyPositions.map(([x,y])=>({
     x, y,
     scatterTarget: {x: randInt(cols), y: randInt(rows)},
-    brainwashed: false, // 洗脳状態
-    huntingTarget: null // 洗脳時のターゲット敵
+    brainwashed: false,
+    huntingTarget: null
   }));
   
   game = {
@@ -398,7 +569,6 @@ function initGame(){
     gameOver: false,
     won: false,
     enemyMode: 'chase',
-    modeTimer: 0,
     turnCount: 0,
     diff
   };
@@ -410,8 +580,8 @@ function initGame(){
 function updateStatus(){
   if(!game) return;
   document.getElementById('stepsLeft').textContent = game.stepsLeft;
-  document.getElementById('invisCount').textContent = `${game.invisRemaining}回 (${game.invisActive}歩)`;
-  document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡中' : '散開中';
+  document.getElementById('invisCount').textContent = `${game.invisRemaining}回(${game.invisActive})`;
+  document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡' : '散開';
   
   const brainwashedCount = game.enemies.filter(e => e.brainwashed).length;
   document.getElementById('brainwashedCount').textContent = brainwashedCount;
@@ -442,10 +612,8 @@ function movePlayer(dx, dy){
   
   if(game.invisActive > 0) game.invisActive--;
   
-  // 敵との衝突判定（透明化中は洗脳）
   checkEnemyCollisions();
   
-  // ゴール判定
   for(const [gx,gy] of game.goals){
     if(player.x === gx && player.y === gy){
       game.won = true;
@@ -455,7 +623,6 @@ function movePlayer(dx, dy){
     }
   }
   
-  // アイテム取得
   for(let i=game.healItems.length-1; i>=0; i--){
     const [hx,hy] = game.healItems[i];
     if(player.x === hx && player.y === hy){
@@ -472,10 +639,8 @@ function movePlayer(dx, dy){
     }
   }
   
-  // プレイヤー移動後、敵を1ターン動かす
   moveEnemiesOneTurn();
   
-  // 歩数切れ判定
   if(game.stepsLeft <= 0){
     game.gameOver = true;
     showGameOver();
@@ -493,16 +658,13 @@ function checkEnemyCollisions(){
     const enemy = enemies[i];
     if(enemy.x === player.x && enemy.y === player.y){
       if(invisActive > 0){
-        // 透明化中 → 敵を洗脳
         enemy.brainwashed = true;
-        enemy.huntingTarget = null; // ターゲットはmoveEnemiesOneTurnで設定
+        enemy.huntingTarget = null;
       } else if(!enemy.brainwashed){
-        // 通常敵に捕まった
         game.gameOver = true;
         showGameOver();
         return;
       }
-      // 洗脳済み敵には当たっても問題なし
     }
   }
 }
@@ -512,8 +674,7 @@ function moveEnemiesOneTurn(){
   
   const {player, enemies, grid, cols, rows, enemyMode, diff, turnCount} = game;
   
-  // モード切り替え（ターン数ベース）
-  const scatterTurnInterval = Math.floor(diff.scatterInterval / 500); // ミリ秒→ターン変換
+  const scatterTurnInterval = Math.floor(diff.scatterInterval / 500);
   const scatterTurnDuration = Math.floor(diff.scatterDuration / 500);
   
   if(enemyMode === 'chase' && turnCount % (scatterTurnInterval + scatterTurnDuration) >= scatterTurnInterval){
@@ -529,14 +690,11 @@ function moveEnemiesOneTurn(){
     game.enemyMode = 'chase';
   }
   
-  // 各敵を1歩移動
   for(let i = enemies.length - 1; i >= 0; i--){
     const enemy = enemies[i];
     
     if(enemy.brainwashed){
-      // 洗脳された敵：他の通常敵を追跡
       if(!enemy.huntingTarget || enemy.huntingTarget.brainwashed){
-        // ターゲットを探す（通常敵の中から最も近い敵）
         let closestEnemy = null;
         let closestDist = Infinity;
         
@@ -557,7 +715,6 @@ function moveEnemiesOneTurn(){
         const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
         
         if(possibleMoves.length > 0){
-          // ターゲットに近づく
           let best = possibleMoves[0];
           let bestDist = dist(best[0], best[1], target.x, target.y);
           
@@ -572,13 +729,10 @@ function moveEnemiesOneTurn(){
           enemy.x = best[0];
           enemy.y = best[1];
           
-          // ターゲットとの衝突判定
           if(enemy.x === target.x && enemy.y === target.y){
-            // 両方消滅
             const targetIdx = enemies.indexOf(target);
             if(targetIdx !== -1) enemies.splice(targetIdx, 1);
             
-            // インデックス調整
             const enemyIdx = enemies.indexOf(enemy);
             if(enemyIdx !== -1) enemies.splice(enemyIdx, 1);
             
@@ -587,7 +741,6 @@ function moveEnemiesOneTurn(){
         }
       }
     } else {
-      // 通常敵：プレイヤーを追跡 or 散開
       const target = game.enemyMode === 'chase' 
         ? {x: player.x, y: player.y}
         : enemy.scatterTarget;
@@ -622,7 +775,6 @@ function moveEnemiesOneTurn(){
       enemy.x = best[0];
       enemy.y = best[1];
       
-      // プレイヤーとの衝突判定（透明化中でなければゲームオーバー）
       if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
         game.gameOver = true;
         showGameOver();
@@ -675,7 +827,7 @@ function showGameOver(){
   document.body.appendChild(modal);
 }
 
-/* ===== 描画 ===== */
+/* 描画 - プレイヤー中心のカメラ */
 function draw(){
   if(!game) return;
   
@@ -683,27 +835,36 @@ function draw(){
   
   const {grid, cols, rows, player, goals, enemies, healItems, invisItems} = game;
   
-  const pad = 20;
-  const cellW = (canvas.width - pad*2) / cols;
-  const cellH = (canvas.height - pad*2) / rows;
-  const s = Math.min(cellW, cellH);
-  const offX = (canvas.width  - cols*s)/2;
-  const offY = (canvas.height - rows*s)/2;
+  // セルサイズを計算（実際の描画サイズを使用）
+  const displayWidth = canvas.clientWidth || canvas.width;
+  const displayHeight = canvas.clientHeight || canvas.height;
+  const visibleRows = Math.min(15, rows); // 画面に表示する行数
+  const s = Math.floor(displayHeight / visibleRows);
+  
+  // カメラオフセット（プレイヤーを中心に）
+  const camX = player.x * s - displayWidth / 2 + s / 2;
+  const camY = player.y * s - displayHeight / 2 + s / 2;
   
   ctx.fillStyle = '#fff';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0,0,displayWidth,displayHeight);
   
   // 壁
   ctx.strokeStyle = '#333';
-  ctx.lineWidth = Math.max(2, Math.floor(s*0.1));
+  ctx.lineWidth = Math.max(2, Math.floor(s*0.12));
   ctx.lineCap = 'square';
   
+  // 表示範囲を計算
+  const startX = Math.max(0, Math.floor(camX / s) - 1);
+  const endX = Math.min(cols, Math.ceil((camX + displayWidth) / s) + 1);
+  const startY = Math.max(0, Math.floor(camY / s) - 1);
+  const endY = Math.min(rows, Math.ceil((camY + displayHeight) / s) + 1);
+  
   ctx.beginPath();
-  for(let y=0;y<rows;y++){
-    for(let x=0;x<cols;x++){
+  for(let y=startY; y<endY; y++){
+    for(let x=startX; x<endX; x++){
       const c = grid[y][x];
-      const x0 = offX + x*s;
-      const y0 = offY + y*s;
+      const x0 = x * s - camX;
+      const y0 = y * s - camY;
       const x1 = x0 + s;
       const y1 = y0 + s;
       
@@ -717,8 +878,10 @@ function draw(){
   
   // ゴール
   for(const [gx,gy] of goals){
-    const cx = offX + (gx+0.5)*s;
-    const cy = offY + (gy+0.5)*s;
+    const cx = gx * s - camX + s / 2;
+    const cy = gy * s - camY + s / 2;
+    if(cx < -s || cx > displayWidth + s || cy < -s || cy > displayHeight + s) continue;
+    
     const r = s*0.35;
     
     ctx.fillStyle = '#4CAF50';
@@ -727,7 +890,7 @@ function draw(){
     ctx.fill();
     
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(s*0.4)}px Arial`;
+    ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('G', cx, cy);
@@ -735,9 +898,11 @@ function draw(){
   
   // 回復アイテム
   for(const [hx,hy] of healItems){
-    const cx = offX + (hx+0.5)*s;
-    const cy = offY + (hy+0.5)*s;
-    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    const cx = hx * s - camX + s / 2;
+    const cy = hy * s - camY + s / 2;
+    if(cx < -s || cx > displayWidth + s || cy < -s || cy > displayHeight + s) continue;
+    
+    ctx.font = `${Math.floor(s*0.7)}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('💊', cx, cy);
@@ -745,9 +910,11 @@ function draw(){
   
   // 透明化アイテム
   for(const [ix,iy] of invisItems){
-    const cx = offX + (ix+0.5)*s;
-    const cy = offY + (iy+0.5)*s;
-    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    const cx = ix * s - camX + s / 2;
+    const cy = iy * s - camY + s / 2;
+    if(cx < -s || cx > displayWidth + s || cy < -s || cy > displayHeight + s) continue;
+    
+    ctx.font = `${Math.floor(s*0.7)}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('👻', cx, cy);
@@ -755,12 +922,13 @@ function draw(){
   
   // 敵
   for(const enemy of enemies){
-    const cx = offX + (enemy.x+0.5)*s;
-    const cy = offY + (enemy.y+0.5)*s;
-    const r = s*0.32;
+    const cx = enemy.x * s - camX + s / 2;
+    const cy = enemy.y * s - camY + s / 2;
+    if(cx < -s || cx > displayWidth + s || cy < -s || cy > displayHeight + s) continue;
+    
+    const r = s*0.35;
     
     if(enemy.brainwashed){
-      // 洗脳された敵は青色
       ctx.fillStyle = '#2196F3';
     } else {
       ctx.fillStyle = game.enemyMode === 'chase' ? '#f44336' : '#FF9800';
@@ -770,29 +938,26 @@ function draw(){
     ctx.arc(cx,cy,r,0,Math.PI*2);
     ctx.fill();
     
-    // 敵の文字表示
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
+    ctx.font = `bold ${Math.floor(s*0.55)}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
     let enemyChar = '兵';
     if(enemy.brainwashed && game.invisActive > 0){
       enemyChar = '男';
-    } else if(enemy.brainwashed){
-      enemyChar = '兵'; // 洗脳済みだが透明化切れ
     }
     
     ctx.fillText(enemyChar, cx, cy);
   }
   
-  // プレイヤー
-  const px = offX + (player.x+0.5)*s;
-  const py = offY + (player.y+0.5)*s;
-  const pr = s*0.35;
+  // プレイヤー（常に中央）
+  const px = displayWidth / 2;
+  const py = displayHeight / 2;
+  const pr = s*0.38;
   
   if(game.invisActive > 0){
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = 0.5;
   }
   
   ctx.fillStyle = '#2196F3';
@@ -802,11 +967,10 @@ function draw(){
   
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#fff';
-  ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
+  ctx.font = `bold ${Math.floor(s*0.55)}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
-  // プレイヤーの文字を透明化使用回数で変更
   let playerChar = '人';
   if(game.totalInvisUsed >= 2){
     playerChar = '妖';
@@ -817,9 +981,10 @@ function draw(){
   ctx.fillText(playerChar, px, py);
 }
 
-/* ===== イベント ===== */
+/* イベントリスナー */
 document.getElementById('gen').addEventListener('click', initGame);
 
+// キーボード操作
 document.addEventListener('keydown', e => {
   if(!game || game.gameOver) return;
   
@@ -841,6 +1006,37 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     useInvisibility();
   }
+});
+
+// タッチ操作
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  btn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const dir = btn.dataset.dir;
+    if(dir === 'up') movePlayer(0,-1);
+    else if(dir === 'down') movePlayer(0,1);
+    else if(dir === 'left') movePlayer(-1,0);
+    else if(dir === 'right') movePlayer(1,0);
+  });
+  
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    const dir = btn.dataset.dir;
+    if(dir === 'up') movePlayer(0,-1);
+    else if(dir === 'down') movePlayer(0,1);
+    else if(dir === 'left') movePlayer(-1,0);
+    else if(dir === 'right') movePlayer(1,0);
+  });
+});
+
+document.getElementById('invisBtn').addEventListener('touchstart', e => {
+  e.preventDefault();
+  useInvisibility();
+});
+
+document.getElementById('invisBtn').addEventListener('click', e => {
+  e.preventDefault();
+  useInvisibility();
 });
 
 // 初期生成
