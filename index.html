@@ -2,75 +2,142 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>迷路ゲーム - 歩数制限＋敵＋アイテム＋洗脳</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>迷路ゲーム - モバイル対応</title>
 <style>
-  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-  .wrap{display:grid;gap:12px;justify-items:center;padding:20px}
-  canvas{border:2px solid rgba(0,0,0,.3);border-radius:8px;touch-action:manipulation;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
-  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
-  button,input,select{font:inherit}
-  button{padding:10px 16px;border:1px solid rgba(0,0,0,.25);background:#fff;border-radius:8px;cursor:pointer;transition:all 0.2s}
-  button:hover{background:#f0f0f0;transform:translateY(-1px)}
-  button:active{transform:translateY(0)}
-  button.primary{background:#4CAF50;color:white;border-color:#4CAF50}
-  button.primary:hover{background:#45a049}
-  label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px;background:#fff}
-  input[type="number"]{width:70px;padding:4px}
-  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff}
-  .status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px;background:rgba(255,255,255,0.95);border-radius:8px;font-size:16px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-  .status-item{display:flex;align-items:center;gap:6px}
-  .status-label{color:#666;font-weight:400}
-  .status-value{color:#111;font-weight:700}
-  .game-over{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:#fff;padding:40px 60px;border-radius:16px;text-align:center;font-size:24px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-  .game-over .rank{font-size:72px;font-weight:bold;margin:20px 0;text-shadow:0 0 20px rgba(255,255,255,0.5)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#1a1a2e;color:#eee;font-family:system-ui,-apple-system,sans-serif}
+  
+  .app{display:flex;flex-direction:column;height:100dvh;height:100vh;max-height:-webkit-fill-available}
+  
+  /* === 上部コントロールエリア === */
+  .top-area{flex-shrink:0;padding:6px 8px;background:#16213e}
+  
+  .settings-bar{display:flex;gap:4px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:6px}
+  .settings-bar button,.settings-bar select,.settings-bar label{
+    font-size:12px;padding:5px 8px;border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.08);color:#eee;border-radius:6px;white-space:nowrap
+  }
+  .settings-bar button.primary{background:#4CAF50;border-color:#4CAF50;color:#fff;font-weight:700}
+  .settings-bar button:active,.settings-bar select:active{background:rgba(255,255,255,.2)}
+  .settings-bar label{display:flex;gap:3px;align-items:center}
+  .settings-bar input[type="number"]{width:44px;padding:2px 4px;font-size:12px;background:rgba(255,255,255,.1);color:#eee;border:1px solid rgba(255,255,255,.2);border-radius:4px;text-align:center}
+  .settings-bar select{padding:4px 6px}
+  
+  .status-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center;font-size:12px;padding:4px 0}
+  .status-item{display:flex;gap:3px;align-items:center;background:rgba(255,255,255,.06);padding:3px 7px;border-radius:5px}
+  .status-label{color:#aaa;font-weight:400}
+  .status-value{color:#fff;font-weight:700}
+  
+  /* === 操作盤 === */
+  .controls-area{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 8px;background:#0f3460}
+  
+  .dpad{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:3px;width:140px;height:140px}
+  .dpad-btn{
+    display:flex;align-items:center;justify-content:center;
+    border:none;border-radius:10px;font-size:24px;cursor:pointer;
+    background:rgba(255,255,255,.12);color:#fff;
+    transition:background 0.1s;
+    touch-action:manipulation;user-select:none;-webkit-user-select:none
+  }
+  .dpad-btn:active,.dpad-btn.pressed{background:rgba(255,255,255,.35);transform:scale(0.95)}
+  .dpad-center{background:rgba(255,255,255,.04);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#888}
+  .dpad-empty{pointer-events:none}
+  
+  .side-btns{display:flex;flex-direction:column;gap:6px}
+  .action-btn{
+    width:64px;height:64px;border:none;border-radius:12px;font-size:13px;font-weight:700;
+    cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.2
+  }
+  .btn-invis{background:#9C27B0;color:#fff}
+  .btn-invis:active{background:#7B1FA2}
+  .btn-invis:disabled{background:#555;color:#999}
+  
+  /* === キャンバスエリア === */
+  .canvas-area{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:4px;min-height:0}
+  canvas{border-radius:6px;touch-action:none;background:#fff;max-width:100%;max-height:100%}
+  
+  /* === ゲームオーバーモーダル === */
+  .game-over{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.95);color:#fff;padding:30px 40px;border-radius:16px;
+    text-align:center;font-size:20px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    max-width:90vw
+  }
+  .game-over .rank{font-size:64px;font-weight:bold;margin:16px 0;text-shadow:0 0 20px rgba(255,255,255,0.5)}
   .game-over .rank.S{color:#FFD700}
   .game-over .rank.A{color:#C0C0C0}
   .game-over .rank.B{color:#CD7F32}
-  .game-over button{margin-top:20px;font-size:18px;padding:12px 24px}
-  .hint{font-size:14px;color:#666;text-align:center;margin-top:8px}
+  .game-over button{margin-top:16px;font-size:16px;padding:10px 24px;border:none;border-radius:8px;background:#4CAF50;color:#fff;font-weight:700;cursor:pointer}
+  .game-over button:active{background:#45a049}
+  
+  /* === PC向け微調整 === */
+  @media(min-width:700px){
+    .top-area{padding:8px 16px}
+    .settings-bar button,.settings-bar select,.settings-bar label{font-size:13px;padding:6px 12px}
+    .status-bar{font-size:14px}
+    .controls-area{padding:8px 16px}
+    .dpad{width:160px;height:160px}
+    .dpad-btn{font-size:28px}
+    .action-btn{width:72px;height:72px;font-size:14px}
+  }
+  
+  /* 横向きスマホ */
+  @media(max-height:500px) and (orientation:landscape){
+    .app{flex-direction:row}
+    .top-area{display:none}
+    .controls-area{flex-direction:column;width:auto;padding:4px}
+    .dpad{width:120px;height:120px}
+    .dpad-btn{font-size:20px}
+    .action-btn{width:56px;height:56px;font-size:11px}
+    .canvas-area{padding:2px}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="bar">
-    <button id="gen" class="primary">新しいゲーム</button>
-    <label>列 <input id="cols" type="number" min="21" max="101" step="2" value="41"></label>
-    <label>行 <input id="rows" type="number" min="21" max="101" step="2" value="31"></label>
-    <label>難易度 
+<div class="app">
+  <!-- 設定バー -->
+  <div class="top-area">
+    <div class="settings-bar">
+      <button id="gen" class="primary">▶ 新ゲーム</button>
+      <label>列<input id="cols" type="number" min="21" max="101" step="2" value="21"></label>
+      <label>行<input id="rows" type="number" min="21" max="101" step="2" value="21"></label>
       <select id="difficulty">
         <option value="easy">簡単</option>
         <option value="normal" selected>普通</option>
         <option value="hard">難しい</option>
       </select>
-    </label>
-  </div>
-  
-  <div class="status">
-    <div class="status-item">
-      <span class="status-label">残り歩数:</span>
-      <span class="status-value" id="stepsLeft">-</span>
     </div>
-    <div class="status-item">
-      <span class="status-label">透明化:</span>
-      <span class="status-value" id="invisCount">-</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">モード:</span>
-      <span class="status-value" id="enemyMode">-</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">洗脳敵:</span>
-      <span class="status-value" id="brainwashedCount">0</span>
+    <div class="status-bar">
+      <div class="status-item"><span class="status-label">歩数</span><span class="status-value" id="stepsLeft">-</span></div>
+      <div class="status-item"><span class="status-label">透明</span><span class="status-value" id="invisCount">-</span></div>
+      <div class="status-item"><span class="status-label">敵</span><span class="status-value" id="enemyMode">-</span></div>
+      <div class="status-item"><span class="status-label">洗脳</span><span class="status-value" id="brainwashedCount">0</span></div>
     </div>
   </div>
   
-  <canvas id="c" width="1000" height="700"></canvas>
+  <!-- 操作盤 -->
+  <div class="controls-area">
+    <div class="dpad">
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" data-dir="up">▲</button>
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" data-dir="left">◀</button>
+      <div class="dpad-center">●</div>
+      <button class="dpad-btn" data-dir="right">▶</button>
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" data-dir="down">▼</button>
+      <div class="dpad-empty"></div>
+    </div>
+    <div class="side-btns">
+      <button class="action-btn btn-invis" id="invisBtn">👻<span style="font-size:10px">透明化</span></button>
+    </div>
+  </div>
   
-  <div class="hint">
-    矢印キーまたはWASDで移動 | スペースキーで透明化使用 | 💊回復アイテム | 👻透明化アイテム<br>
-    透明化中に敵に当たると洗脳！洗脳された敵（青）は他の敵を攻撃します<br>
-    キャラクター：人→女（透明化1回）→妖（透明化2回） | 敵：兵→男（洗脳）
+  <!-- キャンバス -->
+  <div class="canvas-area">
+    <canvas id="c"></canvas>
   </div>
 </div>
 
@@ -78,6 +145,32 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
+/* === キャンバスリサイズ === */
+function resizeCanvas(){
+  const area = document.querySelector('.canvas-area');
+  const w = area.clientWidth - 8;
+  const h = area.clientHeight - 8;
+  
+  if(game){
+    const aspect = game.cols / game.rows;
+    if(w / h > aspect){
+      canvas.height = Math.min(h, 2000);
+      canvas.width = Math.floor(canvas.height * aspect);
+    } else {
+      canvas.width = Math.min(w, 2000);
+      canvas.height = Math.floor(canvas.width / aspect);
+    }
+  } else {
+    canvas.width = Math.min(w, 800);
+    canvas.height = Math.min(h, 600);
+  }
+  draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', ()=> setTimeout(resizeCanvas, 200));
+
+/* === ゲームロジック（変更なし） === */
 const DIRS = [
   {k:'N', dx:0, dy:-1, opp:'S'},
   {k:'E', dx:1, dy:0,  opp:'W'},
@@ -271,7 +364,7 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
   const selected = [];
   const used = new Set();
   
-  const enemiesPerPath = Math.ceil(totalCount / pathsByGoal.length);
+  const enemiesPerPath = Math.ceil(totalCount / Math.max(1, pathsByGoal.length));
   
   for(const {cells} of pathsByGoal){
     cells.sort((a,b) => b.dist - a.dist);
@@ -339,10 +432,10 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
 
 /* ===== ゲーム状態 ===== */
 let game = null;
-let animFrame = null;
 
 function initGame(){
-  if(animFrame) cancelAnimationFrame(animFrame);
+  // 既存モーダルを削除
+  document.querySelectorAll('.game-over').forEach(e=>e.remove());
   
   let cols = oddize(parseInt(document.getElementById('cols').value,10));
   let rows = oddize(parseInt(document.getElementById('rows').value,10));
@@ -379,8 +472,8 @@ function initGame(){
   const enemies = enemyPositions.map(([x,y])=>({
     x, y,
     scatterTarget: {x: randInt(cols), y: randInt(rows)},
-    brainwashed: false, // 洗脳状態
-    huntingTarget: null // 洗脳時のターゲット敵
+    brainwashed: false,
+    huntingTarget: null
   }));
   
   game = {
@@ -403,6 +496,7 @@ function initGame(){
     diff
   };
   
+  resizeCanvas();
   updateStatus();
   draw();
 }
@@ -410,11 +504,15 @@ function initGame(){
 function updateStatus(){
   if(!game) return;
   document.getElementById('stepsLeft').textContent = game.stepsLeft;
-  document.getElementById('invisCount').textContent = `${game.invisRemaining}回 (${game.invisActive}歩)`;
-  document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡中' : '散開中';
+  document.getElementById('invisCount').textContent = `${game.invisRemaining}(${game.invisActive})`;
+  document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡' : '散開';
   
   const brainwashedCount = game.enemies.filter(e => e.brainwashed).length;
   document.getElementById('brainwashedCount').textContent = brainwashedCount;
+  
+  // 透明化ボタンの状態更新
+  const btn = document.getElementById('invisBtn');
+  btn.disabled = game.invisRemaining <= 0 || game.invisActive > 0;
 }
 
 function movePlayer(dx, dy){
@@ -442,10 +540,8 @@ function movePlayer(dx, dy){
   
   if(game.invisActive > 0) game.invisActive--;
   
-  // 敵との衝突判定（透明化中は洗脳）
   checkEnemyCollisions();
   
-  // ゴール判定
   for(const [gx,gy] of game.goals){
     if(player.x === gx && player.y === gy){
       game.won = true;
@@ -455,7 +551,6 @@ function movePlayer(dx, dy){
     }
   }
   
-  // アイテム取得
   for(let i=game.healItems.length-1; i>=0; i--){
     const [hx,hy] = game.healItems[i];
     if(player.x === hx && player.y === hy){
@@ -472,10 +567,8 @@ function movePlayer(dx, dy){
     }
   }
   
-  // プレイヤー移動後、敵を1ターン動かす
   moveEnemiesOneTurn();
   
-  // 歩数切れ判定
   if(game.stepsLeft <= 0){
     game.gameOver = true;
     showGameOver();
@@ -493,16 +586,13 @@ function checkEnemyCollisions(){
     const enemy = enemies[i];
     if(enemy.x === player.x && enemy.y === player.y){
       if(invisActive > 0){
-        // 透明化中 → 敵を洗脳
         enemy.brainwashed = true;
-        enemy.huntingTarget = null; // ターゲットはmoveEnemiesOneTurnで設定
+        enemy.huntingTarget = null;
       } else if(!enemy.brainwashed){
-        // 通常敵に捕まった
         game.gameOver = true;
         showGameOver();
         return;
       }
-      // 洗脳済み敵には当たっても問題なし
     }
   }
 }
@@ -512,8 +602,7 @@ function moveEnemiesOneTurn(){
   
   const {player, enemies, grid, cols, rows, enemyMode, diff, turnCount} = game;
   
-  // モード切り替え（ターン数ベース）
-  const scatterTurnInterval = Math.floor(diff.scatterInterval / 500); // ミリ秒→ターン変換
+  const scatterTurnInterval = Math.floor(diff.scatterInterval / 500);
   const scatterTurnDuration = Math.floor(diff.scatterDuration / 500);
   
   if(enemyMode === 'chase' && turnCount % (scatterTurnInterval + scatterTurnDuration) >= scatterTurnInterval){
@@ -529,14 +618,11 @@ function moveEnemiesOneTurn(){
     game.enemyMode = 'chase';
   }
   
-  // 各敵を1歩移動
   for(let i = enemies.length - 1; i >= 0; i--){
     const enemy = enemies[i];
     
     if(enemy.brainwashed){
-      // 洗脳された敵：他の通常敵を追跡
       if(!enemy.huntingTarget || enemy.huntingTarget.brainwashed){
-        // ターゲットを探す（通常敵の中から最も近い敵）
         let closestEnemy = null;
         let closestDist = Infinity;
         
@@ -557,7 +643,6 @@ function moveEnemiesOneTurn(){
         const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
         
         if(possibleMoves.length > 0){
-          // ターゲットに近づく
           let best = possibleMoves[0];
           let bestDist = dist(best[0], best[1], target.x, target.y);
           
@@ -572,13 +657,10 @@ function moveEnemiesOneTurn(){
           enemy.x = best[0];
           enemy.y = best[1];
           
-          // ターゲットとの衝突判定
           if(enemy.x === target.x && enemy.y === target.y){
-            // 両方消滅
             const targetIdx = enemies.indexOf(target);
             if(targetIdx !== -1) enemies.splice(targetIdx, 1);
             
-            // インデックス調整
             const enemyIdx = enemies.indexOf(enemy);
             if(enemyIdx !== -1) enemies.splice(enemyIdx, 1);
             
@@ -587,7 +669,6 @@ function moveEnemiesOneTurn(){
         }
       }
     } else {
-      // 通常敵：プレイヤーを追跡 or 散開
       const target = game.enemyMode === 'chase' 
         ? {x: player.x, y: player.y}
         : enemy.scatterTarget;
@@ -622,7 +703,6 @@ function moveEnemiesOneTurn(){
       enemy.x = best[0];
       enemy.y = best[1];
       
-      // プレイヤーとの衝突判定（透明化中でなければゲームオーバー）
       if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
         game.gameOver = true;
         showGameOver();
@@ -662,13 +742,13 @@ function showGameOver(){
       <div>🎉 クリア! 🎉</div>
       <div class="rank ${rank}">${rank}</div>
       <div>残り歩数: ${remaining} / ${total}</div>
-      <button onclick="location.reload()">もう一度</button>
+      <button onclick="document.querySelectorAll('.game-over').forEach(e=>e.remove());initGame()">もう一度</button>
     `;
   } else {
     modal.innerHTML = `
       <div>💀 ゲームオーバー 💀</div>
       <div>${game.stepsLeft <= 0 ? '歩数切れ' : '敵に捕まった'}</div>
-      <button onclick="location.reload()">リトライ</button>
+      <button onclick="document.querySelectorAll('.game-over').forEach(e=>e.remove());initGame()">リトライ</button>
     `;
   }
   
@@ -683,7 +763,7 @@ function draw(){
   
   const {grid, cols, rows, player, goals, enemies, healItems, invisItems} = game;
   
-  const pad = 20;
+  const pad = 8;
   const cellW = (canvas.width - pad*2) / cols;
   const cellH = (canvas.height - pad*2) / rows;
   const s = Math.min(cellW, cellH);
@@ -695,7 +775,7 @@ function draw(){
   
   // 壁
   ctx.strokeStyle = '#333';
-  ctx.lineWidth = Math.max(2, Math.floor(s*0.1));
+  ctx.lineWidth = Math.max(1, Math.floor(s*0.1));
   ctx.lineCap = 'square';
   
   ctx.beginPath();
@@ -727,7 +807,7 @@ function draw(){
     ctx.fill();
     
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(s*0.4)}px Arial`;
+    ctx.font = `bold ${Math.max(8, Math.floor(s*0.4))}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('G', cx, cy);
@@ -737,7 +817,7 @@ function draw(){
   for(const [hx,hy] of healItems){
     const cx = offX + (hx+0.5)*s;
     const cy = offY + (hy+0.5)*s;
-    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    ctx.font = `${Math.max(8, Math.floor(s*0.6))}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('💊', cx, cy);
@@ -747,7 +827,7 @@ function draw(){
   for(const [ix,iy] of invisItems){
     const cx = offX + (ix+0.5)*s;
     const cy = offY + (iy+0.5)*s;
-    ctx.font = `${Math.floor(s*0.6)}px Arial`;
+    ctx.font = `${Math.max(8, Math.floor(s*0.6))}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('👻', cx, cy);
@@ -760,7 +840,6 @@ function draw(){
     const r = s*0.32;
     
     if(enemy.brainwashed){
-      // 洗脳された敵は青色
       ctx.fillStyle = '#2196F3';
     } else {
       ctx.fillStyle = game.enemyMode === 'chase' ? '#f44336' : '#FF9800';
@@ -770,9 +849,8 @@ function draw(){
     ctx.arc(cx,cy,r,0,Math.PI*2);
     ctx.fill();
     
-    // 敵の文字表示
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
+    ctx.font = `bold ${Math.max(6, Math.floor(s*0.5))}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -780,7 +858,7 @@ function draw(){
     if(enemy.brainwashed && game.invisActive > 0){
       enemyChar = '男';
     } else if(enemy.brainwashed){
-      enemyChar = '兵'; // 洗脳済みだが透明化切れ
+      enemyChar = '兵';
     }
     
     ctx.fillText(enemyChar, cx, cy);
@@ -802,11 +880,10 @@ function draw(){
   
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#fff';
-  ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
+  ctx.font = `bold ${Math.max(6, Math.floor(s*0.5))}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
-  // プレイヤーの文字を透明化使用回数で変更
   let playerChar = '人';
   if(game.totalInvisUsed >= 2){
     playerChar = '妖';
@@ -817,9 +894,10 @@ function draw(){
   ctx.fillText(playerChar, px, py);
 }
 
-/* ===== イベント ===== */
+/* ===== 入力イベント ===== */
 document.getElementById('gen').addEventListener('click', initGame);
 
+// キーボード
 document.addEventListener('keydown', e => {
   if(!game || game.gameOver) return;
   
@@ -840,6 +918,99 @@ document.addEventListener('keydown', e => {
   } else if(key === ' '){
     e.preventDefault();
     useInvisibility();
+  }
+});
+
+// D-Padタッチ操作（連続入力対応）
+const dirMap = {up:[0,-1], down:[0,1], left:[-1,0], right:[1,0]};
+let repeatTimer = null;
+let repeatDir = null;
+
+function startRepeat(dir){
+  stopRepeat();
+  repeatDir = dir;
+  const [dx,dy] = dirMap[dir];
+  movePlayer(dx,dy);
+  // 長押しで連続移動
+  repeatTimer = setTimeout(function tick(){
+    if(repeatDir === dir){
+      const [dx,dy] = dirMap[dir];
+      movePlayer(dx,dy);
+      repeatTimer = setTimeout(tick, 120);
+    }
+  }, 300);
+}
+
+function stopRepeat(){
+  repeatDir = null;
+  if(repeatTimer){
+    clearTimeout(repeatTimer);
+    repeatTimer = null;
+  }
+}
+
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const dir = btn.dataset.dir;
+  
+  btn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    startRepeat(dir);
+  });
+  btn.addEventListener('touchend', e => {
+    e.preventDefault();
+    btn.classList.remove('pressed');
+    stopRepeat();
+  });
+  btn.addEventListener('touchcancel', e => {
+    btn.classList.remove('pressed');
+    stopRepeat();
+  });
+  
+  // マウスでも動作
+  btn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    startRepeat(dir);
+  });
+});
+
+document.addEventListener('mouseup', () => {
+  document.querySelectorAll('.dpad-btn.pressed').forEach(b=>b.classList.remove('pressed'));
+  stopRepeat();
+});
+
+// 透明化ボタン
+document.getElementById('invisBtn').addEventListener('click', useInvisibility);
+document.getElementById('invisBtn').addEventListener('touchstart', e => {
+  e.preventDefault();
+  useInvisibility();
+});
+
+// スワイプ操作（キャンバス上）
+let touchStartX = 0, touchStartY = 0;
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+});
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if(e.changedTouches.length === 0) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const threshold = 20;
+  
+  if(Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+  
+  if(Math.abs(dx) > Math.abs(dy)){
+    movePlayer(dx > 0 ? 1 : -1, 0);
+  } else {
+    movePlayer(0, dy > 0 ? 1 : -1);
   }
 });
 
