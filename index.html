@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>迷路ゲーム - 保存・経路表示対応</title>
+<title>迷路ゲーム - 歩数制限＋敵＋アイテム＋洗脳</title>
 <style>
   body{margin:0;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-  .wrap{display:grid;gap:12px;justify-items:center;padding:20px;max-width:1400px}
+  .wrap{display:grid;gap:12px;justify-items:center;padding:20px}
   canvas{border:2px solid rgba(0,0,0,.3);border-radius:8px;touch-action:manipulation;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
   .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
   button,input,select{font:inherit}
@@ -15,12 +15,9 @@
   button:active{transform:translateY(0)}
   button.primary{background:#4CAF50;color:white;border-color:#4CAF50}
   button.primary:hover{background:#45a049}
-  button.secondary{background:#2196F3;color:white;border-color:#2196F3}
-  button.secondary:hover{background:#1976D2}
   label{display:flex;gap:6px;align-items:center;border:1px solid rgba(0,0,0,.15);padding:6px 10px;border-radius:8px;background:#fff}
   input[type="number"]{width:70px;padding:4px}
-  input[type="checkbox"]{width:18px;height:18px;cursor:pointer}
-  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;cursor:pointer}
+  select{padding:6px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff}
   .status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px;background:rgba(255,255,255,0.95);border-radius:8px;font-size:16px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
   .status-item{display:flex;align-items:center;gap:6px}
   .status-label{color:#666;font-weight:400}
@@ -32,13 +29,6 @@
   .game-over .rank.B{color:#CD7F32}
   .game-over button{margin-top:20px;font-size:18px;padding:12px 24px}
   .hint{font-size:14px;color:#666;text-align:center;margin-top:8px}
-  .save-section{display:flex;gap:8px;align-items:center;padding:8px;background:rgba(255,255,255,0.8);border-radius:8px;border:1px solid rgba(0,0,0,0.1)}
-  .saved-list{max-height:150px;overflow-y:auto;display:flex;gap:4px;flex-wrap:wrap}
-  .saved-item{padding:6px 12px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:13px;display:flex;gap:6px;align-items:center}
-  .saved-item:hover{background:#f0f0f0}
-  .saved-item .del{color:#f44336;cursor:pointer;font-weight:bold}
-  .saved-item .del:hover{color:#d32f2f}
-  input[type="file"]{display:none}
 </style>
 </head>
 <body>
@@ -56,14 +46,6 @@
     </label>
   </div>
   
-  <div class="bar">
-    <label><input id="showPath" type="checkbox" checked> 経路を表示</label>
-    <select id="pathMode">
-      <option value="nearest" selected>最短ゴール</option>
-      <option value="all">全ゴール</option>
-    </select>
-  </div>
-  
   <div class="status">
     <div class="status-item">
       <span class="status-label">残り歩数:</span>
@@ -77,20 +59,18 @@
       <span class="status-label">モード:</span>
       <span class="status-value" id="enemyMode">-</span>
     </div>
+    <div class="status-item">
+      <span class="status-label">洗脳敵:</span>
+      <span class="status-value" id="brainwashedCount">0</span>
+    </div>
   </div>
   
   <canvas id="c" width="1000" height="700"></canvas>
   
-  <div class="save-section">
-    <button id="saveBtn" class="secondary">💾 保存</button>
-    <button id="exportBtn">📤 エクスポート</button>
-    <button id="importBtn">📥 インポート</button>
-    <input type="file" id="importFile" accept=".json">
-    <div class="saved-list" id="savedList"></div>
-  </div>
-  
   <div class="hint">
-    矢印キーまたはWASDで移動 | スペースキーで透明化使用 | 💊回復+20歩 | 👻透明化10歩
+    矢印キーまたはWASDで移動 | スペースキーで透明化使用 | 💊回復アイテム | 👻透明化アイテム<br>
+    透明化中に敵に当たると洗脳！洗脳された敵（青）は他の敵を攻撃します<br>
+    キャラクター：人→女（透明化1回）→妖（透明化2回） | 敵：兵→男（洗脳）
   </div>
 </div>
 
@@ -106,9 +86,9 @@ const DIRS = [
 ];
 
 const DIFFICULTY = {
-  easy: {stepMult: 2.2, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000, enemySpeed: 800, safeZone: 8},
-  normal: {stepMult: 1.8, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500, enemySpeed: 600, safeZone: 6},
-  hard: {stepMult: 1.5, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000, enemySpeed: 450, safeZone: 5}
+  easy: {stepMult: 1.8, enemyCount: 4, scatterInterval: 8000, scatterDuration: 3000},
+  normal: {stepMult: 1.4, enemyCount: 6, scatterInterval: 10000, scatterDuration: 2500},
+  hard: {stepMult: 1.2, enemyCount: 9, scatterInterval: 12000, scatterDuration: 2000}
 };
 
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
@@ -264,8 +244,9 @@ function placeItemsByDistance(distMap, cols, rows, minPct, maxPct, maxDist, coun
   return candidates.slice(0, Math.min(count, candidates.length));
 }
 
-function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount, safeZone){
+function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalCount){
   const [sx, sy] = start;
+  const allPathCells = new Set();
   const pathsByGoal = [];
   
   const {prev} = bfsAllPrev(grid, cols, rows, sx, sy);
@@ -277,10 +258,9 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
     const pathCells = [];
     for(let i=1; i<path.length-1; i++){
       const [px, py] = path[i];
-      const d = distMap[py][px];
-      // スタート付近と遠すぎる場所は除外
-      if(d < safeZone) continue;
-      pathCells.push({x:px, y:py, dist: d});
+      const key = `${px},${py}`;
+      allPathCells.add(key);
+      pathCells.push({x:px, y:py, dist: distMap[py][px]});
     }
     
     if(pathCells.length > 0){
@@ -306,7 +286,7 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
       
       const maxPathDist = cells[0].dist;
       const pct = d / maxPathDist;
-      if(pct < 0.35 || pct > 0.95) continue;
+      if(pct < 0.3 || pct > 0.95) continue;
       
       let tooClose = false;
       for(const [ex, ey] of selected){
@@ -323,13 +303,12 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
     }
   }
   
-  // 不足分は遠い場所に配置
   if(selected.length < totalCount){
     const candidates = [];
     for(let y=0; y<rows; y++){
       for(let x=0; x<cols; x++){
         const d = distMap[y][x];
-        if(d === Infinity || d < safeZone) continue;
+        if(d === Infinity || d < 5) continue;
         const key = `${x},${y}`;
         if(used.has(key)) continue;
         candidates.push({x, y, dist: d});
@@ -351,15 +330,16 @@ function placeEnemiesOnGoalPaths(grid, cols, rows, start, goals, distMap, totalC
       if(tooClose) continue;
       
       selected.push([x, y]);
+      used.add(`${x},${y}`);
     }
   }
   
   return selected;
 }
 
+/* ===== ゲーム状態 ===== */
 let game = null;
 let animFrame = null;
-let lastTime = 0;
 
 function initGame(){
   if(animFrame) cancelAnimationFrame(animFrame);
@@ -389,24 +369,23 @@ function initGame(){
     if(d < minDist) minDist = d;
   }
   
+  const maxSteps = Math.ceil(minDist * diff.stepMult);
+  
   const healItems = placeItemsByDistance(distMap, cols, rows, 0.60, 0.75, minDist, 2);
   const invisItems = placeItemsByDistance(distMap, cols, rows, 0.35, 0.45, minDist, 1)
     .concat(placeItemsByDistance(distMap, cols, rows, 0.45, 0.55, minDist, 1));
   
-  const healBonus = healItems.length * 20;
-  const maxSteps = Math.ceil(minDist * diff.stepMult) + Math.floor(healBonus * 0.5);
-  
-  const enemyPositions = placeEnemiesOnGoalPaths(grid, cols, rows, [sx, sy], goals, distMap, diff.enemyCount, diff.safeZone);
+  const enemyPositions = placeEnemiesOnGoalPaths(grid, cols, rows, [sx, sy], goals, distMap, diff.enemyCount);
   const enemies = enemyPositions.map(([x,y])=>({
     x, y,
-    targetX: x, targetY: y,
     scatterTarget: {x: randInt(cols), y: randInt(rows)},
-    moveTimer: 0
+    brainwashed: false, // 洗脳状態
+    huntingTarget: null // 洗脳時のターゲット敵
   }));
   
   game = {
     grid, cols, rows,
-    player: {x: sx, y: sy},
+    player: {x: sx, y: sy, invisUsedCount: 0},
     goals,
     enemies,
     healItems,
@@ -414,25 +393,28 @@ function initGame(){
     maxSteps,
     stepsLeft: maxSteps,
     invisRemaining: 2,
+    totalInvisUsed: 0,
     invisActive: 0,
     gameOver: false,
     won: false,
     enemyMode: 'chase',
     modeTimer: 0,
+    turnCount: 0,
     diff
   };
   
-  lastTime = performance.now();
   updateStatus();
   draw();
-  animFrame = requestAnimationFrame(gameLoop);
 }
 
 function updateStatus(){
   if(!game) return;
   document.getElementById('stepsLeft').textContent = game.stepsLeft;
-  document.getElementById('invisCount').textContent = `${game.invisRemaining}回 (${Math.ceil(game.invisActive/10)}歩)`;
+  document.getElementById('invisCount').textContent = `${game.invisRemaining}回 (${game.invisActive}歩)`;
   document.getElementById('enemyMode').textContent = game.enemyMode === 'chase' ? '追跡中' : '散開中';
+  
+  const brainwashedCount = game.enemies.filter(e => e.brainwashed).length;
+  document.getElementById('brainwashedCount').textContent = brainwashedCount;
 }
 
 function movePlayer(dx, dy){
@@ -456,9 +438,14 @@ function movePlayer(dx, dy){
   player.x = nx;
   player.y = ny;
   game.stepsLeft--;
+  game.turnCount++;
   
   if(game.invisActive > 0) game.invisActive--;
   
+  // 敵との衝突判定（透明化中は洗脳）
+  checkEnemyCollisions();
+  
+  // ゴール判定
   for(const [gx,gy] of game.goals){
     if(player.x === gx && player.y === gy){
       game.won = true;
@@ -468,6 +455,7 @@ function movePlayer(dx, dy){
     }
   }
   
+  // アイテム取得
   for(let i=game.healItems.length-1; i>=0; i--){
     const [hx,hy] = game.healItems[i];
     if(player.x === hx && player.y === hy){
@@ -484,10 +472,163 @@ function movePlayer(dx, dy){
     }
   }
   
+  // プレイヤー移動後、敵を1ターン動かす
+  moveEnemiesOneTurn();
+  
+  // 歩数切れ判定
   if(game.stepsLeft <= 0){
     game.gameOver = true;
     showGameOver();
     return;
+  }
+  
+  updateStatus();
+  draw();
+}
+
+function checkEnemyCollisions(){
+  const {player, enemies, invisActive} = game;
+  
+  for(let i = enemies.length - 1; i >= 0; i--){
+    const enemy = enemies[i];
+    if(enemy.x === player.x && enemy.y === player.y){
+      if(invisActive > 0){
+        // 透明化中 → 敵を洗脳
+        enemy.brainwashed = true;
+        enemy.huntingTarget = null; // ターゲットはmoveEnemiesOneTurnで設定
+      } else if(!enemy.brainwashed){
+        // 通常敵に捕まった
+        game.gameOver = true;
+        showGameOver();
+        return;
+      }
+      // 洗脳済み敵には当たっても問題なし
+    }
+  }
+}
+
+function moveEnemiesOneTurn(){
+  if(!game || game.gameOver) return;
+  
+  const {player, enemies, grid, cols, rows, enemyMode, diff, turnCount} = game;
+  
+  // モード切り替え（ターン数ベース）
+  const scatterTurnInterval = Math.floor(diff.scatterInterval / 500); // ミリ秒→ターン変換
+  const scatterTurnDuration = Math.floor(diff.scatterDuration / 500);
+  
+  if(enemyMode === 'chase' && turnCount % (scatterTurnInterval + scatterTurnDuration) >= scatterTurnInterval){
+    if(game.enemyMode === 'chase'){
+      game.enemyMode = 'scatter';
+      enemies.forEach(e => {
+        if(!e.brainwashed){
+          e.scatterTarget = {x: randInt(cols), y: randInt(rows)};
+        }
+      });
+    }
+  } else {
+    game.enemyMode = 'chase';
+  }
+  
+  // 各敵を1歩移動
+  for(let i = enemies.length - 1; i >= 0; i--){
+    const enemy = enemies[i];
+    
+    if(enemy.brainwashed){
+      // 洗脳された敵：他の通常敵を追跡
+      if(!enemy.huntingTarget || enemy.huntingTarget.brainwashed){
+        // ターゲットを探す（通常敵の中から最も近い敵）
+        let closestEnemy = null;
+        let closestDist = Infinity;
+        
+        for(const otherEnemy of enemies){
+          if(otherEnemy === enemy || otherEnemy.brainwashed) continue;
+          const d = dist(enemy.x, enemy.y, otherEnemy.x, otherEnemy.y);
+          if(d < closestDist){
+            closestDist = d;
+            closestEnemy = otherEnemy;
+          }
+        }
+        
+        enemy.huntingTarget = closestEnemy;
+      }
+      
+      if(enemy.huntingTarget){
+        const target = enemy.huntingTarget;
+        const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
+        
+        if(possibleMoves.length > 0){
+          // ターゲットに近づく
+          let best = possibleMoves[0];
+          let bestDist = dist(best[0], best[1], target.x, target.y);
+          
+          for(const [nx,ny] of possibleMoves){
+            const d = dist(nx, ny, target.x, target.y);
+            if(d < bestDist){
+              bestDist = d;
+              best = [nx,ny];
+            }
+          }
+          
+          enemy.x = best[0];
+          enemy.y = best[1];
+          
+          // ターゲットとの衝突判定
+          if(enemy.x === target.x && enemy.y === target.y){
+            // 両方消滅
+            const targetIdx = enemies.indexOf(target);
+            if(targetIdx !== -1) enemies.splice(targetIdx, 1);
+            
+            // インデックス調整
+            const enemyIdx = enemies.indexOf(enemy);
+            if(enemyIdx !== -1) enemies.splice(enemyIdx, 1);
+            
+            continue;
+          }
+        }
+      }
+    } else {
+      // 通常敵：プレイヤーを追跡 or 散開
+      const target = game.enemyMode === 'chase' 
+        ? {x: player.x, y: player.y}
+        : enemy.scatterTarget;
+      
+      const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
+      if(possibleMoves.length === 0) continue;
+      
+      let best = possibleMoves[0];
+      
+      if(game.enemyMode === 'chase'){
+        const {dist: playerDistMap} = bfsAllPrev(grid, cols, rows, target.x, target.y);
+        let bestPathDist = playerDistMap[best[1]][best[0]];
+        
+        for(const [nx,ny] of possibleMoves){
+          const pathDist = playerDistMap[ny][nx];
+          if(pathDist < bestPathDist){
+            bestPathDist = pathDist;
+            best = [nx,ny];
+          }
+        }
+      } else {
+        let bestDist = dist(best[0], best[1], target.x, target.y);
+        for(const [nx,ny] of possibleMoves){
+          const d = dist(nx, ny, target.x, target.y);
+          if(d < bestDist){
+            bestDist = d;
+            best = [nx,ny];
+          }
+        }
+      }
+      
+      enemy.x = best[0];
+      enemy.y = best[1];
+      
+      // プレイヤーとの衝突判定（透明化中でなければゲームオーバー）
+      if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
+        game.gameOver = true;
+        showGameOver();
+        return;
+      }
+    }
   }
   
   updateStatus();
@@ -498,7 +639,9 @@ function useInvisibility(){
   if(game.invisRemaining > 0 && game.invisActive === 0){
     game.invisRemaining--;
     game.invisActive = 10;
+    game.totalInvisUsed++;
     updateStatus();
+    draw();
   }
 }
 
@@ -532,104 +675,7 @@ function showGameOver(){
   document.body.appendChild(modal);
 }
 
-function updateEnemies(dt){
-  if(!game || game.gameOver) return;
-  
-  const {player, enemies, grid, cols, rows, enemyMode, diff} = game;
-  
-  game.modeTimer += dt;
-  if(enemyMode === 'chase' && game.modeTimer >= diff.scatterInterval){
-    game.enemyMode = 'scatter';
-    game.modeTimer = 0;
-    enemies.forEach(e => {
-      e.scatterTarget = {x: randInt(cols), y: randInt(rows)};
-    });
-    updateStatus();
-  } else if(enemyMode === 'scatter' && game.modeTimer >= diff.scatterDuration){
-    game.enemyMode = 'chase';
-    game.modeTimer = 0;
-    updateStatus();
-  }
-  
-  for(const enemy of enemies){
-    enemy.moveTimer += dt;
-    if(enemy.moveTimer < diff.enemySpeed) continue;
-    enemy.moveTimer = 0;
-    
-    const target = game.enemyMode === 'chase' 
-      ? {x: player.x, y: player.y}
-      : enemy.scatterTarget;
-    
-    const possibleMoves = neighbors(grid, cols, rows, enemy.x, enemy.y);
-    if(possibleMoves.length === 0) continue;
-    
-    let best = possibleMoves[0];
-    
-    if(game.enemyMode === 'chase'){
-      const {dist: playerDistMap} = bfsAllPrev(grid, cols, rows, target.x, target.y);
-      let bestPathDist = playerDistMap[best[1]][best[0]];
-      
-      for(const [nx,ny] of possibleMoves){
-        const pathDist = playerDistMap[ny][nx];
-        if(pathDist < bestPathDist){
-          bestPathDist = pathDist;
-          best = [nx,ny];
-        }
-      }
-    } else {
-      let bestDist = dist(best[0], best[1], target.x, target.y);
-      for(const [nx,ny] of possibleMoves){
-        const d = dist(nx, ny, target.x, target.y);
-        if(d < bestDist){
-          bestDist = d;
-          best = [nx,ny];
-        }
-      }
-    }
-    
-    enemy.x = best[0];
-    enemy.y = best[1];
-    
-    if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
-      game.gameOver = true;
-      showGameOver();
-      return;
-    }
-  }
-}
-
-function computePaths(){
-  if(!game) return [];
-  
-  const showPath = document.getElementById('showPath').checked;
-  if(!showPath) return [];
-  
-  const {grid, cols, rows, player, goals} = game;
-  const mode = document.getElementById('pathMode').value;
-  const {prev, dist} = bfsAllPrev(grid, cols, rows, player.x, player.y);
-  
-  if(mode === 'nearest'){
-    let best = null;
-    let bestD = Infinity;
-    for(const [gx,gy] of goals){
-      const d = dist[gy][gx];
-      if(d < bestD){
-        bestD = d;
-        best = [gx,gy];
-      }
-    }
-    if(!best || bestD === Infinity) return [];
-    return [reconstructPath(prev, player.x, player.y, best[0], best[1])];
-  } else {
-    const out = [];
-    for(const [gx,gy] of goals){
-      if(dist[gy][gx] === Infinity) continue;
-      out.push(reconstructPath(prev, player.x, player.y, gx, gy));
-    }
-    return out;
-  }
-}
-
+/* ===== 描画 ===== */
 function draw(){
   if(!game) return;
   
@@ -646,28 +692,6 @@ function draw(){
   
   ctx.fillStyle = '#fff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  
-  // 経路描画
-  const paths = computePaths();
-  if(paths && paths.length){
-    ctx.strokeStyle = 'rgba(76, 175, 80, 0.35)';
-    ctx.lineWidth = Math.max(3, Math.floor(s*0.22));
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    
-    for(const path of paths){
-      if(!path || path.length<2) continue;
-      ctx.beginPath();
-      for(let i=0;i<path.length;i++){
-        const [x,y] = path[i];
-        const cx = offX + (x+0.5)*s;
-        const cy = offY + (y+0.5)*s;
-        if(i===0) ctx.moveTo(cx,cy);
-        else ctx.lineTo(cx,cy);
-      }
-      ctx.stroke();
-    }
-  }
   
   // 壁
   ctx.strokeStyle = '#333';
@@ -735,16 +759,31 @@ function draw(){
     const cy = offY + (enemy.y+0.5)*s;
     const r = s*0.32;
     
-    ctx.fillStyle = game.enemyMode === 'chase' ? '#f44336' : '#FF9800';
+    if(enemy.brainwashed){
+      // 洗脳された敵は青色
+      ctx.fillStyle = '#2196F3';
+    } else {
+      ctx.fillStyle = game.enemyMode === 'chase' ? '#f44336' : '#FF9800';
+    }
+    
     ctx.beginPath();
     ctx.arc(cx,cy,r,0,Math.PI*2);
     ctx.fill();
     
+    // 敵の文字表示
     ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(cx-r*0.3, cy-r*0.2, r*0.25, 0, Math.PI*2);
-    ctx.arc(cx+r*0.3, cy-r*0.2, r*0.25, 0, Math.PI*2);
-    ctx.fill();
+    ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    let enemyChar = '兵';
+    if(enemy.brainwashed && game.invisActive > 0){
+      enemyChar = '男';
+    } else if(enemy.brainwashed){
+      enemyChar = '兵'; // 洗脳済みだが透明化切れ
+    }
+    
+    ctx.fillText(enemyChar, cx, cy);
   }
   
   // プレイヤー
@@ -763,222 +802,23 @@ function draw(){
   
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#fff';
-  ctx.font = `bold ${Math.floor(s*0.4)}px Arial`;
+  ctx.font = `bold ${Math.floor(s*0.5)}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('P', px, py);
-}
-
-function gameLoop(time){
-  const dt = time - lastTime;
-  lastTime = time;
   
-  updateEnemies(dt);
-  draw();
-  
-  if(!game.gameOver){
-    animFrame = requestAnimationFrame(gameLoop);
-  }
-}
-
-// 保存・読み込み機能
-function saveMaze(){
-  if(!game) return;
-  
-  const name = prompt('迷路の名前:', `迷路_${new Date().toLocaleTimeString('ja-JP')}`);
-  if(!name) return;
-  
-  const data = {
-    name,
-    time: Date.now(),
-    grid: game.grid,
-    cols: game.cols,
-    rows: game.rows,
-    player: game.player,
-    goals: game.goals,
-    enemies: game.enemies.map(e => ({x: e.x, y: e.y})),
-    healItems: game.healItems,
-    invisItems: game.invisItems,
-    maxSteps: game.maxSteps,
-    difficulty: document.getElementById('difficulty').value
-  };
-  
-  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
-  saved.push(data);
-  localStorage.setItem('savedMazes', JSON.stringify(saved));
-  
-  updateSavedList();
-  alert('保存しました!');
-}
-
-function loadMaze(idx){
-  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
-  if(idx < 0 || idx >= saved.length) return;
-  
-  const data = saved[idx];
-  
-  if(animFrame) cancelAnimationFrame(animFrame);
-  
-  document.getElementById('cols').value = data.cols;
-  document.getElementById('rows').value = data.rows;
-  document.getElementById('difficulty').value = data.difficulty;
-  
-  const diff = DIFFICULTY[data.difficulty];
-  
-  const enemies = data.enemies.map(({x,y})=>({
-    x, y,
-    targetX: x, targetY: y,
-    scatterTarget: {x: randInt(data.cols), y: randInt(data.rows)},
-    moveTimer: 0
-  }));
-  
-  game = {
-    grid: data.grid,
-    cols: data.cols,
-    rows: data.rows,
-    player: {...data.player},
-    goals: data.goals,
-    enemies,
-    healItems: [...data.healItems],
-    invisItems: [...data.invisItems],
-    maxSteps: data.maxSteps,
-    stepsLeft: data.maxSteps,
-    invisRemaining: 2,
-    invisActive: 0,
-    gameOver: false,
-    won: false,
-    enemyMode: 'chase',
-    modeTimer: 0,
-    diff
-  };
-  
-  lastTime = performance.now();
-  updateStatus();
-  draw();
-  animFrame = requestAnimationFrame(gameLoop);
-}
-
-function deleteMaze(idx){
-  if(!confirm('削除しますか?')) return;
-  
-  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
-  saved.splice(idx, 1);
-  localStorage.setItem('savedMazes', JSON.stringify(saved));
-  updateSavedList();
-}
-
-function exportMaze(){
-  if(!game) return;
-  
-  const data = {
-    name: `迷路_${new Date().toLocaleString('ja-JP')}`,
-    time: Date.now(),
-    grid: game.grid,
-    cols: game.cols,
-    rows: game.rows,
-    player: game.player,
-    goals: game.goals,
-    enemies: game.enemies.map(e => ({x: e.x, y: e.y})),
-    healItems: game.healItems,
-    invisItems: game.invisItems,
-    maxSteps: game.maxSteps,
-    difficulty: document.getElementById('difficulty').value
-  };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `maze_${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importMaze(){
-  document.getElementById('importFile').click();
-}
-
-document.getElementById('importFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    try{
-      const data = JSON.parse(evt.target.result);
-      
-      if(animFrame) cancelAnimationFrame(animFrame);
-      
-      document.getElementById('cols').value = data.cols;
-      document.getElementById('rows').value = data.rows;
-      document.getElementById('difficulty').value = data.difficulty;
-      
-      const diff = DIFFICULTY[data.difficulty];
-      
-      const enemies = data.enemies.map(({x,y})=>({
-        x, y,
-        targetX: x, targetY: y,
-        scatterTarget: {x: randInt(data.cols), y: randInt(data.rows)},
-        moveTimer: 0
-      }));
-      
-      game = {
-        grid: data.grid,
-        cols: data.cols,
-        rows: data.rows,
-        player: {...data.player},
-        goals: data.goals,
-        enemies,
-        healItems: [...data.healItems],
-        invisItems: [...data.invisItems],
-        maxSteps: data.maxSteps,
-        stepsLeft: data.maxSteps,
-        invisRemaining: 2,
-        invisActive: 0,
-        gameOver: false,
-        won: false,
-        enemyMode: 'chase',
-        modeTimer: 0,
-        diff
-      };
-      
-      lastTime = performance.now();
-      updateStatus();
-      draw();
-      animFrame = requestAnimationFrame(gameLoop);
-      
-      alert('インポートしました!');
-    } catch(err){
-      alert('ファイル読み込みエラー: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  e.target.value = '';
-});
-
-function updateSavedList(){
-  const saved = JSON.parse(localStorage.getItem('savedMazes') || '[]');
-  const list = document.getElementById('savedList');
-  
-  if(saved.length === 0){
-    list.innerHTML = '<div style="color:#999; font-size:13px">保存なし</div>';
-    return;
+  // プレイヤーの文字を透明化使用回数で変更
+  let playerChar = '人';
+  if(game.totalInvisUsed >= 2){
+    playerChar = '妖';
+  } else if(game.invisActive > 0){
+    playerChar = '女';
   }
   
-  list.innerHTML = saved.map((m, i) => `
-    <div class="saved-item">
-      <span onclick="loadMaze(${i})" style="cursor:pointer">${m.name}</span>
-      <span class="del" onclick="deleteMaze(${i})">×</span>
-    </div>
-  `).join('');
+  ctx.fillText(playerChar, px, py);
 }
 
+/* ===== イベント ===== */
 document.getElementById('gen').addEventListener('click', initGame);
-document.getElementById('saveBtn').addEventListener('click', saveMaze);
-document.getElementById('exportBtn').addEventListener('click', exportMaze);
-document.getElementById('importBtn').addEventListener('click', importMaze);
-document.getElementById('showPath').addEventListener('change', draw);
-document.getElementById('pathMode').addEventListener('change', draw);
 
 document.addEventListener('keydown', e => {
   if(!game || game.gameOver) return;
@@ -1001,11 +841,9 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     useInvisibility();
   }
-  
-  draw();
 });
 
-updateSavedList();
+// 初期生成
 initGame();
 </script>
 </body>
