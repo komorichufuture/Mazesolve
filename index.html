@@ -72,6 +72,7 @@
     position:relative;
     overflow:hidden;
     background:#fff;
+    touch-action:none;
   }
   
   canvas{
@@ -83,7 +84,7 @@
   
   .mobile-controls{
     position:absolute;
-    bottom:20px;
+    top:20px;
     left:0;
     right:0;
     display:flex;
@@ -98,13 +99,14 @@
     width:140px;
     height:140px;
     pointer-events:all;
+    opacity:0.85;
   }
   
   .dpad-btn{
     position:absolute;
     width:50px;
     height:50px;
-    background:rgba(255,255,255,0.85);
+    background:rgba(255,255,255,0.9);
     border:2px solid rgba(0,0,0,0.3);
     border-radius:8px;
     display:flex;
@@ -114,7 +116,8 @@
     font-weight:bold;
     color:#333;
     user-select:none;
-    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+    box-shadow:0 3px 10px rgba(0,0,0,0.3);
+    backdrop-filter:blur(5px);
   }
   
   .dpad-btn:active{
@@ -137,15 +140,16 @@
   .invis-btn{
     width:70px;
     height:70px;
-    background:rgba(139,69,255,0.9);
-    border:3px solid rgba(255,255,255,0.8);
+    background:rgba(139,69,255,0.92);
+    border:3px solid rgba(255,255,255,0.9);
     border-radius:50%;
     display:flex;
     align-items:center;
     justify-content:center;
     font-size:32px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
     user-select:none;
+    backdrop-filter:blur(5px);
   }
   
   .invis-btn:active{
@@ -256,6 +260,24 @@ function resizeCanvas(){
 window.addEventListener('resize', resizeCanvas);
 // 初期化を遅延実行
 setTimeout(resizeCanvas, 100);
+
+// スマホブラウザのURLバーを隠すための処理
+function hideAddressBar(){
+  setTimeout(() => {
+    window.scrollTo(0, 1);
+    setTimeout(() => window.scrollTo(0, 0), 0);
+  }, 100);
+}
+
+// ページ読み込み時とリサイズ時にURLバーを隠す
+window.addEventListener('load', hideAddressBar);
+window.addEventListener('orientationchange', hideAddressBar);
+
+// ゲーム開始時にもURLバーを隠す
+document.addEventListener('touchstart', function onFirstTouch() {
+  hideAddressBar();
+  document.removeEventListener('touchstart', onFirstTouch);
+}, {passive: true});
 
 const DIRS = [
   {k:'N', dx:0, dy:-1, opp:'S'},
