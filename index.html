@@ -538,9 +538,12 @@ function movePlayer(dx, dy){
   game.stepsLeft--;
   game.turnCount++;
   
-  if(game.invisActive > 0) game.invisActive--;
-  
+  // 衝突判定を先に行い、その後に透明カウンターを減らす
   checkEnemyCollisions();
+  
+  if(game.gameOver) return;
+  
+  if(game.invisActive > 0) game.invisActive--;
   
   for(const [gx,gy] of game.goals){
     if(player.x === gx && player.y === gy){
@@ -580,14 +583,28 @@ function movePlayer(dx, dy){
 }
 
 function checkEnemyCollisions(){
-  const {player, enemies, invisActive} = game;
+  const {player, enemies} = game;
+  const invisActive = game.invisActive;
   
   for(let i = enemies.length - 1; i >= 0; i--){
     const enemy = enemies[i];
     if(enemy.x === player.x && enemy.y === player.y){
       if(invisActive > 0){
+        // 透明化中 → 敵を洗脳
         enemy.brainwashed = true;
         enemy.huntingTarget = null;
+        // 洗脳した敵をプレイヤーと重ならないように隣接セルへ退避
+        const adj = neighbors(game.grid, game.cols, game.rows, enemy.x, enemy.y);
+        if(adj.length > 0){
+          let best = adj[0];
+          let bestD = dist(best[0], best[1], player.x, player.y);
+          for(const [ax,ay] of adj){
+            const d = dist(ax, ay, player.x, player.y);
+            if(d > bestD){ bestD = d; best = [ax,ay]; }
+          }
+          enemy.x = best[0];
+          enemy.y = best[1];
+        }
       } else if(!enemy.brainwashed){
         game.gameOver = true;
         showGameOver();
@@ -703,10 +720,28 @@ function moveEnemiesOneTurn(){
       enemy.x = best[0];
       enemy.y = best[1];
       
-      if(game.invisActive === 0 && enemy.x === player.x && enemy.y === player.y){
-        game.gameOver = true;
-        showGameOver();
-        return;
+      // プレイヤーとの衝突判定
+      if(enemy.x === player.x && enemy.y === player.y){
+        if(game.invisActive > 0){
+          // 透明化中 → 敵を洗脳して退避
+          enemy.brainwashed = true;
+          enemy.huntingTarget = null;
+          const adj = neighbors(grid, cols, rows, enemy.x, enemy.y);
+          if(adj.length > 0){
+            let b = adj[0];
+            let bd = dist(b[0], b[1], player.x, player.y);
+            for(const [ax,ay] of adj){
+              const dd = dist(ax, ay, player.x, player.y);
+              if(dd > bd){ bd = dd; b = [ax,ay]; }
+            }
+            enemy.x = b[0];
+            enemy.y = b[1];
+          }
+        } else {
+          game.gameOver = true;
+          showGameOver();
+          return;
+        }
       }
     }
   }
